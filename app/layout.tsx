@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
@@ -27,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SiteHeader email={user?.email ?? null} role={role} />
         {children}
         <SiteFooter />
+        <Analytics />
       </body>
     </html>
   );
