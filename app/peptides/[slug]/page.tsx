@@ -11,14 +11,46 @@ import { MobileSectionRail } from '@/components/ui/mobile-section-rail';
 
 type Props = { params: Promise<{ slug: string }> };
 
+const ADMIN_ROUTE_LABEL: Record<string, string> = {
+  subcutaneous_injection: 'Subcutaneous injection',
+  intramuscular_injection: 'Intramuscular injection',
+  oral: 'Oral',
+  intranasal: 'Intranasal',
+  topical: 'Topical',
+  intravenous: 'Intravenous',
+};
+
+// Maps database protocol_label → display heading + intro sentence shown above the table
+const PROTOCOL_SECTION: Record<string, { heading: string; intro: string }> = {
+  'Standard escalation (Phase 2 reference)': {
+    heading: 'Standard / Gradual Approach',
+    intro:
+      'Conservative titration schedule matching the primary Phase 2 protocol. The recommended starting point for most patients.',
+  },
+  'Advanced escalation (Phase 2 high-dose arm)': {
+    heading: 'Advanced Aggressive Protocol',
+    intro:
+      'Higher-dose arm from Phase 2, used for participants who tolerated the standard schedule well. Reach the 12 mg target dose sooner.',
+  },
+  'Concentration reference (10 mg/mL)': {
+    heading: 'Dosing Protocol',
+    intro:
+      'Quick reference for converting your prescribed dose to syringe units and injection volume at 10 mg/mL concentration.',
+  },
+};
+
 export default async function DrugDetailPage({ params }: Props) {
   const { slug } = await params;
   const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: drug } = await supabase
     .from('peptides')
-    .select('id, slug, name, generic_name, brand_names, drug_class, administration_route, typical_dosing_schedule, short_description, mechanism_summary, evidence_score, status_label, prescription_required, contraindications, drug_interactions, storage_handling, pharmacokinetics')
+    .select(
+      'id, slug, name, generic_name, brand_names, drug_class, administration_route, typical_dosing_schedule, short_description, mechanism_summary, evidence_score, status_label, prescription_required, contraindications, drug_interactions, storage_handling, pharmacokinetics',
+    )
     .eq('slug', slug)
     .eq('is_visible', true)
     .eq('publication_status', 'published')
@@ -26,28 +58,90 @@ export default async function DrugDetailPage({ params }: Props) {
 
   if (!drug) notFound();
 
-  const [expectationsRes, foodRes, tipsRes, sideEffectsRes, studyLinksRes, dosagesRes, outcomesRes, injectionGuideRes, reconstitutionGuideRes, doseReferenceRes] = await Promise.all([
-    supabase.from('drug_expectations').select('id, week_number, milestone, description, is_common').eq('drug_id', drug.id).order('week_number').limit(6),
-    supabase.from('drug_food_guidance').select('id, category, item, rationale').eq('drug_id', drug.id).order('ordinal').limit(12),
-    supabase.from('drug_tips').select('id, category, title, body_markdown').eq('drug_id', drug.id).order('ordinal').limit(6),
-    supabase.from('side_effects').select('id, effect, severity, frequency').eq('peptide_id', drug.id).limit(10),
+  const [
+    expectationsRes,
+    foodRes,
+    tipsRes,
+    sideEffectsRes,
+    studyLinksRes,
+    dosagesRes,
+    outcomesRes,
+    injectionGuideRes,
+    reconstitutionGuideRes,
+    doseReferenceRes,
+  ] = await Promise.all([
+    supabase
+      .from('drug_expectations')
+      .select('id, week_number, milestone, description, is_common')
+      .eq('drug_id', drug.id)
+      .order('week_number')
+      .limit(8),
+    supabase
+      .from('drug_food_guidance')
+      .select('id, category, item, rationale')
+      .eq('drug_id', drug.id)
+      .order('ordinal')
+      .limit(12),
+    supabase
+      .from('drug_tips')
+      .select('id, category, title, body_markdown')
+      .eq('drug_id', drug.id)
+      .order('ordinal')
+      .limit(20),
+    supabase.from('side_effects').select('id, effect, severity, frequency').eq('peptide_id', drug.id).limit(12),
     supabase.from('study_peptides').select('study_id').eq('peptide_id', drug.id),
-    supabase.from('study_dosages').select('id, study_id, dosage_value, dosage_unit, frequency, duration, context_note').eq('peptide_id', drug.id),
-    supabase.from('study_outcomes').select('id, study_id, outcome_type, description, significance').eq('peptide_id', drug.id),
-    supabase.from('drug_injection_guide').select('id, step_type, formulation, ordinal, title, body').eq('drug_id', drug.id).order('ordinal'),
-    supabase.from('drug_reconstitution_guide').select('id, vial_size_mg, bac_water_ml, concentration_mg_per_ml, technique_notes, measurement_note, storage_lyophilized, storage_reconstituted, use_within, ordinal').eq('drug_id', drug.id).order('ordinal'),
-    supabase.from('drug_dose_reference').select('id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, ordinal').eq('drug_id', drug.id).order('ordinal'),
+    supabase
+      .from('study_dosages')
+      .select('id, study_id, dosage_value, dosage_unit, frequency, duration, context_note')
+      .eq('peptide_id', drug.id),
+    supabase
+      .from('study_outcomes')
+      .select('id, study_id, outcome_type, description, significance')
+      .eq('peptide_id', drug.id),
+    supabase
+      .from('drug_injection_guide')
+      .select('id, step_type, formulation, ordinal, title, body')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_reconstitution_guide')
+      .select(
+        'id, vial_size_mg, bac_water_ml, concentration_mg_per_ml, technique_notes, measurement_note, storage_lyophilized, storage_reconstituted, use_within, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_dose_reference')
+      .select('id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
   ]);
 
   const studyIds = (studyLinksRes.data ?? []).map((r) => r.study_id);
-  const studiesRes = studyIds.length > 0
-    ? await supabase
-        .from('studies')
-        .select('id, title, journal, publication_date, study_type, sample_size, population, source_url, doi, abstract')
-        .in('id', studyIds)
-        .eq('publication_status', 'published')
-        .order('publication_date', { ascending: false })
-    : { data: [] as Array<{ id: string; title: string; journal: string | null; publication_date: string | null; study_type: string; sample_size: number | null; population: string | null; source_url: string; doi: string | null; abstract: string | null }> };
+  const studiesRes =
+    studyIds.length > 0
+      ? await supabase
+          .from('studies')
+          .select(
+            'id, title, journal, publication_date, study_type, sample_size, population, source_url, doi, abstract',
+          )
+          .in('id', studyIds)
+          .eq('publication_status', 'published')
+          .order('publication_date', { ascending: false })
+      : {
+          data: [] as Array<{
+            id: string;
+            title: string;
+            journal: string | null;
+            publication_date: string | null;
+            study_type: string;
+            sample_size: number | null;
+            population: string | null;
+            source_url: string;
+            doi: string | null;
+            abstract: string | null;
+          }>,
+        };
 
   let regionNote: string | null = null;
   if (user) {
@@ -78,6 +172,14 @@ export default async function DrugDetailPage({ params }: Props) {
   }, {});
   const doseProtocolLabels = [...new Set(doseReference.map((r) => r.protocol_label))];
 
+  // True when the drug is a compounded/lyophilized formulation
+  const hasReconstitution = reconstitutionGuide.length > 0 || doseReference.length > 0;
+  // True when the drug uses a pen device and has no reconstitution content
+  const hasPenGuide = injectionGuide.length > 0 && !hasReconstitution;
+
+  const lifecycleTips = tips.filter((t) => t.category === 'other');
+  const practicalTips = tips.filter((t) => t.category !== 'other');
+
   const dosagesByStudy = dosages.reduce<Record<string, typeof dosages>>((acc, d) => {
     (acc[d.study_id] ||= []).push(d);
     return acc;
@@ -99,38 +201,82 @@ export default async function DrugDetailPage({ params }: Props) {
   const interactionList: DrugInteraction[] = Array.isArray(drug.drug_interactions)
     ? (drug.drug_interactions as DrugInteraction[])
     : [];
-  const pk = (drug.pharmacokinetics && typeof drug.pharmacokinetics === 'object' && !Array.isArray(drug.pharmacokinetics))
-    ? (drug.pharmacokinetics as Record<string, string>)
-    : {};
+
+  const pk =
+    drug.pharmacokinetics &&
+    typeof drug.pharmacokinetics === 'object' &&
+    !Array.isArray(drug.pharmacokinetics)
+      ? (drug.pharmacokinetics as Record<string, string>)
+      : {};
   const PK_LABEL: Record<string, string> = {
     half_life: 'Elimination half-life',
-    tmax: 'Time to peak concentration (Tmax)',
+    tmax: 'Time to peak (Tmax)',
     bioavailability_note: 'Bioavailability',
     clearance: 'Clearance',
   };
   const pkEntries = Object.entries(pk).filter(([, v]) => typeof v === 'string' && v.length > 0);
 
-  const FOOD_LABEL: Record<string, string> = { prefer: '✅ Prefer', limit: '⚠️ Limit', avoid: '❌ Avoid', hydrate: '💧 Hydrate' };
+  const FOOD_LABEL: Record<string, string> = {
+    prefer: '✅ Prefer',
+    limit: '⚠️ Limit',
+    avoid: '❌ Avoid',
+    hydrate: '💧 Hydrate',
+  };
   const foodByCategory = (['prefer', 'limit', 'avoid', 'hydrate'] as const).reduce(
     (acc, cat) => ({ ...acc, [cat]: food.filter((f) => f.category === cat) }),
     {} as Record<string, typeof food>,
   );
 
+  // Quickstart highlights derived from drug fields — no extra query needed
+  const quickstartHighlights: Array<{ icon: string; text: string }> = (
+    [
+      drug.administration_route
+        ? { icon: '💉', text: ADMIN_ROUTE_LABEL[drug.administration_route] ?? drug.administration_route }
+        : null,
+      drug.drug_class ? { icon: '🔬', text: drug.drug_class } : null,
+      reconstitutionGuide.length > 0
+        ? { icon: '🧪', text: 'Lyophilised powder — requires reconstitution with bacteriostatic water' }
+        : injectionGuide.length > 0
+          ? { icon: '🖊️', text: 'Pre-filled autoinjector pen' }
+          : null,
+      drug.prescription_required ? { icon: '📋', text: 'Prescription required' } : null,
+    ] as Array<{ icon: string; text: string } | null>
+  ).filter(Boolean) as Array<{ icon: string; text: string }>;
+
   const tocItems = [
     { id: 'overview', label: 'Overview' },
-    { id: 'expectations', label: 'What to expect' },
-    { id: 'guidance', label: 'Food and practical guidance' },
-    ...(reconstitutionGuide.length > 0 || doseReference.length > 0 ? [{ id: 'reconstitution', label: 'Reconstitution & dosing' }] : []),
-    ...(injectionGuide.length > 0 ? [{ id: 'injection', label: 'Injection guide' }] : []),
-    { id: 'safety', label: 'Safety and interactions' },
-    { id: 'evidence', label: 'Research evidence' },
+    ...(drug.mechanism_summary || pkEntries.length > 0 ? [{ id: 'mechanism', label: 'How it works' }] : []),
+    ...(hasReconstitution
+      ? [{ id: 'reconstitution', label: 'Dosing & reconstitution' }]
+      : hasPenGuide
+        ? [{ id: 'injection', label: 'Injection guide' }]
+        : []),
+    ...(expectations.length > 0 || sideEffects.length > 0 || lifecycleTips.length > 0
+      ? [{ id: 'clinical', label: 'Benefits & side effects' }]
+      : []),
+    ...(food.length > 0 || practicalTips.length > 0 ? [{ id: 'guidance', label: 'Nutrition & tips' }] : []),
+    ...(drug.contraindications || interactionList.length > 0 ? [{ id: 'safety', label: 'Safety & interactions' }] : []),
+    ...(studies.length > 0 ? [{ id: 'evidence', label: 'Research evidence' }] : []),
   ];
 
   const quickFacts = [
-    { label: 'Drug Class', value: drug.drug_class || 'General companion info' },
-    { label: 'Route', value: drug.administration_route || 'See prescribing information' },
-    { label: 'Schedule', value: drug.typical_dosing_schedule || 'Individualized by prescriber' },
-    { label: 'Evidence', value: drug.evidence_score != null ? String(drug.evidence_score) : 'Published literature linked below' },
+    { label: 'Drug class', value: drug.drug_class ?? 'See companion content' },
+    {
+      label: 'Route',
+      value: drug.administration_route
+        ? (ADMIN_ROUTE_LABEL[drug.administration_route] ?? drug.administration_route)
+        : 'See prescribing information',
+    },
+    {
+      label: 'Schedule',
+      value: drug.typical_dosing_schedule
+        ? drug.typical_dosing_schedule.split('.')[0].trim()
+        : 'Individualised by prescriber',
+    },
+    {
+      label: 'Evidence score',
+      value: drug.evidence_score != null ? String(drug.evidence_score) : 'Literature linked below',
+    },
   ];
 
   return (
@@ -139,10 +285,14 @@ export default async function DrugDetailPage({ params }: Props) {
         <div className="sticky top-[4.5rem] z-30 lg:hidden">
           <TocScrollSpy items={tocItems} compact />
         </div>
-        <Link href="/peptides" className="inline-flex text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <Link
+          href="/peptides"
+          className="inline-flex text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
           ← All drugs
         </Link>
 
+        {/* ── Overview header ── */}
         <header id="overview" className="space-y-4 fade-up">
           <p className="eyebrow">Drug companion protocol</p>
           <div className="space-y-3">
@@ -151,130 +301,162 @@ export default async function DrugDetailPage({ params }: Props) {
               {drug.prescription_required && <Badge>Prescription only</Badge>}
               {drug.drug_class && <Badge variant="secondary">{drug.drug_class}</Badge>}
             </div>
-            {brands.length > 0 ? <p className="text-sm text-muted-foreground">Also known as: {brands.join(', ')}</p> : null}
-            {drug.short_description ? (
+            {brands.length > 0 && (
+              <p className="text-sm text-muted-foreground">Also known as: {brands.join(', ')}</p>
+            )}
+            {drug.short_description && (
               <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">{drug.short_description}</p>
-            ) : null}
+            )}
           </div>
+
           <QuickFactsPanel items={quickFacts} />
+
+          {/* Quickstart highlights */}
+          {quickstartHighlights.length > 0 && (
+            <div className="rounded-[--radius-xl] border border-primary/20 bg-primary/5 p-4">
+              <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                Quickstart highlights
+              </p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {quickstartHighlights.map((h, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <span className="shrink-0 text-base leading-5">{h.icon}</span>
+                    <span>{h.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <Alert variant="info">
             <AlertDescription className="text-sm">
-              <strong>General information only — not medical advice.</strong> Always follow your prescriber's instructions.
-              {regionNote ? <> {regionNote}</> : null}
+              <strong>General information only — not medical advice.</strong> Always follow your prescriber&apos;s
+              instructions.{regionNote ? <> {regionNote}</> : null}
             </AlertDescription>
           </Alert>
         </header>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
           <div className="space-y-8">
-            {(drug.mechanism_summary || drug.typical_dosing_schedule || expectations.length > 0) && (
-              <ProtocolBlock id="expectations" title="What to expect" subtitle="How this medication is generally described in evidence-backed companion content.">
-                <div className="space-y-5">
-                  {drug.mechanism_summary ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How it works</p>
-                      <p className="mt-1.5 text-sm leading-relaxed">{drug.mechanism_summary}</p>
-                    </div>
-                  ) : null}
-                  {drug.typical_dosing_schedule ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Typical schedule context</p>
-                      <p className="mt-1.5 text-sm leading-relaxed">{drug.typical_dosing_schedule}</p>
-                    </div>
-                  ) : null}
-                  {expectations.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week-by-week milestones</p>
-                      {expectations.map((e) => (
-                        <div key={e.id} className="rounded-[--radius] border border-border/85 bg-background p-3">
-                          <div className="flex items-start gap-2">
-                            <Badge variant="outline" className="mt-0.5 shrink-0">
-                              Week {e.week_number}
-                            </Badge>
-                            <div>
-                              <p className="text-sm font-semibold">{e.milestone}</p>
-                              <p className="text-sm text-muted-foreground">{e.description}</p>
-                            </div>
-                          </div>
+            {/* ── How it works ── */}
+            {(drug.mechanism_summary || pkEntries.length > 0) && (
+              <ProtocolBlock
+                id="mechanism"
+                title="How this works"
+                subtitle="Mechanism of action and pharmacokinetic profile from published data."
+              >
+                <div className="space-y-4">
+                  {drug.mechanism_summary && (
+                    <p className="text-sm leading-relaxed">{drug.mechanism_summary}</p>
+                  )}
+                  {pkEntries.length > 0 && (
+                    <dl className="grid gap-x-6 gap-y-3 rounded-[--radius] border border-border bg-background p-4 sm:grid-cols-2">
+                      {pkEntries.map(([k, v]) => (
+                        <div key={k}>
+                          <dt className="text-xs font-semibold text-muted-foreground">
+                            {PK_LABEL[k] ?? k.replace(/_/g, ' ')}
+                          </dt>
+                          <dd className="mt-0.5 text-sm">{v}</dd>
                         </div>
                       ))}
-                    </div>
-                  ) : null}
+                    </dl>
+                  )}
                 </div>
               </ProtocolBlock>
             )}
 
-            {(food.length > 0 || tips.length > 0 || sideEffects.length > 0) && (
-              <ProtocolBlock id="guidance" title="Food and practical guidance" subtitle="Daily-use support information designed for fast mobile scanning.">
-                <div className="space-y-6">
-                  {food.length > 0 ? (
+            {/* ── Dosing & Reconstitution Guide (lyophilised / compounded drugs) ── */}
+            {hasReconstitution && (
+              <ProtocolBlock
+                id="reconstitution"
+                title="Dosing & Reconstitution Guide"
+                subtitle="Full preparation, protocol, and administration reference for compounded lyophilised formulations."
+              >
+                <div className="space-y-8">
+                  {/* Protocol Overview */}
+                  {drug.typical_dosing_schedule && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Food and hydration</p>
-                      <div className="mt-2 space-y-3">
-                        {(['prefer', 'limit', 'avoid', 'hydrate'] as const)
-                          .filter((c) => foodByCategory[c].length > 0)
-                          .map((cat) => (
-                            <div key={cat}>
-                              <p className="mb-1 text-xs font-semibold text-muted-foreground">{FOOD_LABEL[cat]}</p>
-                              <div className="flex flex-wrap gap-2">
-                                {foodByCategory[cat].map((f) => (
-                                  <span key={f.id} className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-xs">
-                                    {f.item}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Protocol overview
+                      </p>
+                      <p className="mt-1.5 text-sm leading-relaxed">{drug.typical_dosing_schedule}</p>
                     </div>
-                  ) : null}
+                  )}
 
-                  {tips.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tips to improve adherence</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {tips.map((t) => (
-                          <Card key={t.id} className="h-full">
-                            <CardHeader className="pb-2">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">{t.category}</Badge>
-                                <CardTitle className="text-sm">{t.title}</CardTitle>
-                              </div>
-                            </CardHeader>
-                            <CardContent>
-                              <p className="text-sm leading-relaxed text-muted-foreground">{t.body_markdown}</p>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {sideEffects.length > 0 ? (
+                  {/* Supplies Needed */}
+                  {injectionByType.supply.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Common side effects</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {sideEffects.map((s) => (
-                          <span key={s.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs">
-                            {s.effect}
-                            {s.severity ? <span className="text-muted-foreground">({s.severity})</span> : null}
-                          </span>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Supplies needed
+                      </p>
+                      <ul className="mt-2 space-y-2">
+                        {injectionByType.supply.map((g) => (
+                          <li key={g.id} className="flex gap-2 text-sm">
+                            <span className="mt-0.5 shrink-0 text-muted-foreground">◦</span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <span className="text-muted-foreground"> — {g.body}</span>}
+                            </span>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </div>
-                  ) : null}
-                </div>
-              </ProtocolBlock>
-            )}
+                  )}
 
-            {(reconstitutionGuide.length > 0 || doseReference.length > 0) && (
-              <ProtocolBlock id="reconstitution" title="Reconstitution & dosing" subtitle="Compounding arithmetic and dose reference tables. Your prescriber and pharmacy determine your actual dose and vial size.">
-                <div className="space-y-6">
+                  {/* Dose protocol tables — Standard, Advanced, Concentration reference */}
+                  {doseProtocolLabels.map((label) => {
+                    const config = PROTOCOL_SECTION[label];
+                    return (
+                      <div key={label} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {config?.heading ?? label}
+                        </p>
+                        {config?.intro && (
+                          <p className="text-sm text-muted-foreground">{config.intro}</p>
+                        )}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border">
+                                <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Phase / Dose
+                                </th>
+                                <th className="pb-1.5 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  U-100 Units
+                                </th>
+                                <th className="pb-1.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Volume (mL)
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {doseByProtocol[label].map((row) => (
+                                <tr key={row.id} className="border-b border-border/50">
+                                  <td className="py-1.5 pr-4">{row.phase_label ?? `${row.dose_mg} mg`}</td>
+                                  <td className="py-1.5 pr-4 text-right tabular-nums">{row.units_u100}</td>
+                                  <td className="py-1.5 text-right tabular-nums">
+                                    {Number(row.volume_ml).toFixed(2)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Reconstitution Steps */}
                   {reconstitutionGuide.length > 0 && (
-                    <div className="space-y-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reconstitution guide</p>
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Reconstitution steps
+                      </p>
                       {reconstitutionGuide.map((r) => (
-                        <div key={r.id} className="rounded-[--radius] border border-border bg-background p-4 space-y-3">
+                        <div
+                          key={r.id}
+                          className="space-y-3 rounded-[--radius] border border-border bg-background p-4"
+                        >
                           <div className="flex flex-wrap gap-6">
                             <div>
                               <p className="text-xs text-muted-foreground">Vial size</p>
@@ -290,82 +472,140 @@ export default async function DrugDetailPage({ params }: Props) {
                             </div>
                           </div>
                           {r.measurement_note && (
-                            <p className="rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">{r.measurement_note}</p>
+                            <p className="rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                              {r.measurement_note}
+                            </p>
                           )}
                           {r.technique_notes && (
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Technique</p>
-                              <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{r.technique_notes}</p>
+                            <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                              {r.technique_notes}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Injection steps */}
+                  {injectionByType.step.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Injection steps
+                      </p>
+                      <ol className="mt-2 space-y-2">
+                        {injectionByType.step.map((g, i) => (
+                          <li key={g.id} className="flex gap-3 text-sm">
+                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                              {i + 1}
+                            </span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <p className="mt-0.5 text-muted-foreground">{g.body}</p>}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {/* Storage Instructions */}
+                  {reconstitutionGuide.length > 0 &&
+                    (reconstitutionGuide[0].storage_lyophilized ||
+                      reconstitutionGuide[0].storage_reconstituted) && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Storage instructions
+                        </p>
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          {reconstitutionGuide[0].storage_lyophilized && (
+                            <div className="rounded-[--radius] border border-border bg-background p-3">
+                              <p className="text-xs font-semibold text-muted-foreground">Before reconstitution</p>
+                              <p className="mt-1 text-sm leading-relaxed">
+                                {reconstitutionGuide[0].storage_lyophilized}
+                              </p>
                             </div>
                           )}
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {r.storage_lyophilized && (
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Before reconstitution</p>
-                                <p className="mt-1 text-sm leading-relaxed">{r.storage_lyophilized}</p>
-                              </div>
-                            )}
-                            {r.storage_reconstituted && (
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">After reconstitution</p>
-                                <p className="mt-1 text-sm leading-relaxed">{r.storage_reconstituted}</p>
-                              </div>
-                            )}
-                          </div>
-                          {r.use_within && (
-                            <p className="text-xs text-muted-foreground">{r.use_within}</p>
+                          {reconstitutionGuide[0].storage_reconstituted && (
+                            <div className="rounded-[--radius] border border-border bg-background p-3">
+                              <p className="text-xs font-semibold text-muted-foreground">After reconstitution</p>
+                              <p className="mt-1 text-sm leading-relaxed">
+                                {reconstitutionGuide[0].storage_reconstituted}
+                              </p>
+                              {reconstitutionGuide[0].use_within && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {reconstitutionGuide[0].use_within}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
-                      ))}
+                      </div>
+                    )}
+
+                  {/* Important Notes */}
+                  {injectionByType.warning.length > 0 && (
+                    <div className="rounded-[--radius] border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                        Important notes
+                      </p>
+                      <ul className="mt-2 space-y-2">
+                        {injectionByType.warning.map((g) => (
+                          <li key={g.id} className="flex gap-2 text-sm">
+                            <span className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400">!</span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <p className="mt-0.5 text-muted-foreground">{g.body}</p>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
-                  {doseProtocolLabels.length > 0 && (
-                    <div className="space-y-5">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dose reference tables</p>
-                      {doseProtocolLabels.map((label) => (
-                        <div key={label} className="space-y-2">
-                          <p className="text-sm font-semibold">{label}</p>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-border">
-                                  <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phase / Dose</th>
-                                  <th className="pb-1.5 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">U-100 Units</th>
-                                  <th className="pb-1.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Volume (mL)</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {doseByProtocol[label].map((row) => (
-                                  <tr key={row.id} className="border-b border-border/50">
-                                    <td className="py-1.5 pr-4">{row.phase_label ?? `${row.dose_mg} mg`}</td>
-                                    <td className="py-1.5 pr-4 text-right tabular-nums">{row.units_u100}</td>
-                                    <td className="py-1.5 text-right tabular-nums">{Number(row.volume_ml).toFixed(2)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
+                  {/* Sharps Disposal */}
+                  {injectionByType.disposal.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Sharps disposal
+                      </p>
+                      <ul className="mt-2 space-y-1.5">
+                        {injectionByType.disposal.map((g) => (
+                          <li key={g.id} className="flex gap-2 text-sm">
+                            <span className="mt-0.5 shrink-0 text-muted-foreground">◦</span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <span className="text-muted-foreground"> — {g.body}</span>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
-                  <div className="rounded-[--radius] border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/30">
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                      Concentration calculations are standard compounding arithmetic. Protocol phases are drawn from published Phase 2 trial data. Your prescriber and dispensing pharmacy determine the actual dose, vial size, and escalation schedule for your treatment.
+                  <div className="rounded-[--radius] border border-border/60 bg-muted/30 px-3 py-2.5">
+                    <p className="text-xs text-muted-foreground">
+                      Concentration calculations are standard compounding arithmetic. Protocol phases are drawn from
+                      published Phase 2 trial data. Your prescriber and dispensing pharmacy determine the actual dose,
+                      vial size, and escalation schedule for your treatment.
                     </p>
                   </div>
                 </div>
               </ProtocolBlock>
             )}
 
-            {injectionGuide.length > 0 && (
-              <ProtocolBlock id="injection" title="Injection guide" subtitle="Supplies, step-by-step technique, safety notes, and AU sharps disposal.">
+            {/* ── Pen Injection Guide (approved pen-device drugs only) ── */}
+            {hasPenGuide && (
+              <ProtocolBlock
+                id="injection"
+                title="Injection guide"
+                subtitle="Supplies, step-by-step technique, safety notes, and AU sharps disposal."
+              >
                 <div className="space-y-6">
                   {injectionByType.supply.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What you need</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Supplies needed
+                      </p>
                       <ul className="mt-2 space-y-2">
                         {injectionByType.supply.map((g) => (
                           <li key={g.id} className="flex gap-2 text-sm">
@@ -381,11 +621,15 @@ export default async function DrugDetailPage({ params }: Props) {
                   )}
                   {injectionByType.step.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step-by-step</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Step-by-step
+                      </p>
                       <ol className="mt-2 space-y-2">
                         {injectionByType.step.map((g, i) => (
                           <li key={g.id} className="flex gap-3 text-sm">
-                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">{i + 1}</span>
+                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                              {i + 1}
+                            </span>
                             <span>
                               <span className="font-medium">{g.title}</span>
                               {g.body && <p className="mt-0.5 text-muted-foreground">{g.body}</p>}
@@ -397,7 +641,9 @@ export default async function DrugDetailPage({ params }: Props) {
                   )}
                   {injectionByType.warning.length > 0 && (
                     <div className="rounded-[--radius] border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Important notes</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                        Important notes
+                      </p>
                       <ul className="mt-2 space-y-1.5">
                         {injectionByType.warning.map((g) => (
                           <li key={g.id} className="flex gap-2 text-sm">
@@ -413,7 +659,9 @@ export default async function DrugDetailPage({ params }: Props) {
                   )}
                   {injectionByType.disposal.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sharps disposal</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Sharps disposal
+                      </p>
                       <ul className="mt-2 space-y-1.5">
                         {injectionByType.disposal.map((g) => (
                           <li key={g.id} className="flex gap-2 text-sm">
@@ -431,54 +679,215 @@ export default async function DrugDetailPage({ params }: Props) {
               </ProtocolBlock>
             )}
 
-            {(drug.contraindications || interactionList.length > 0 || drug.storage_handling || pkEntries.length > 0) && (
-              <ProtocolBlock id="safety" title="Safety and interactions" subtitle="Share this information with your prescriber for personalized care decisions.">
-                <div className="space-y-4">
-                  {drug.contraindications ? (
+            {/* ── Clinical Benefits & Side Effects ── */}
+            {(expectations.length > 0 || sideEffects.length > 0 || lifecycleTips.length > 0) && (
+              <ProtocolBlock
+                id="clinical"
+                title="Clinical Benefits & Side Effects"
+                subtitle="Observed outcomes, adverse effects, and lifecycle considerations from published trial data."
+              >
+                <div className="space-y-7">
+                  {/* Benefits */}
+                  {expectations.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Who should not take this</p>
-                      <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed">{drug.contraindications}</p>
-                    </div>
-                  ) : null}
-                  {interactionList.length > 0 ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Known interactions</p>
-                      <ul className="mt-1.5 space-y-1.5">
-                        {interactionList.map((i, idx) => (
-                          <li key={idx} className="text-sm">
-                            {i.drug ? <span className="font-medium">{i.drug}</span> : null}
-                            {i.severity ? <Badge variant="outline" className="ml-2">{i.severity}</Badge> : null}
-                            {i.interaction ? <p className="text-muted-foreground">{i.interaction}</p> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {drug.storage_handling ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Storage and handling</p>
-                      <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed">{drug.storage_handling}</p>
-                    </div>
-                  ) : null}
-                  {pkEntries.length > 0 ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pharmacokinetics</p>
-                      <dl className="mt-1.5 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                        {pkEntries.map(([k, v]) => (
-                          <div key={k}>
-                            <dt className="text-xs font-semibold text-muted-foreground">{PK_LABEL[k] ?? k.replace(/_/g, ' ')}</dt>
-                            <dd className="text-sm">{v}</dd>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Benefits</p>
+                      <div className="mt-2 space-y-2">
+                        {expectations.map((e) => (
+                          <div key={e.id} className="rounded-[--radius] border border-border/85 bg-background p-3">
+                            <div className="flex items-start gap-2">
+                              <Badge variant="outline" className="mt-0.5 shrink-0">
+                                Week {e.week_number === 0 ? '0' : e.week_number}
+                              </Badge>
+                              <div>
+                                <p className="text-sm font-semibold">{e.milestone}</p>
+                                <p className="text-sm text-muted-foreground">{e.description}</p>
+                              </div>
+                            </div>
                           </div>
                         ))}
-                      </dl>
+                      </div>
                     </div>
-                  ) : null}
+                  )}
+
+                  {/* Side Effects */}
+                  {sideEffects.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Side effects
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {sideEffects.map((s) => (
+                          <div key={s.id} className="flex items-start gap-2 text-sm">
+                            <span className="mt-0.5 shrink-0 text-muted-foreground">◦</span>
+                            <span>
+                              <span className="font-medium">{s.effect}</span>
+                              {s.severity && (
+                                <span className="ml-1.5 text-xs text-muted-foreground">({s.severity})</span>
+                              )}
+                              {s.frequency && <p className="text-xs text-muted-foreground">{s.frequency}</p>}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lifecycle Factors */}
+                  {lifecycleTips.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Lifecycle factors
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {lifecycleTips.map((t) => (
+                          <div
+                            key={t.id}
+                            className="rounded-[--radius] border border-border bg-background p-3"
+                          >
+                            <p className="text-sm font-semibold">{t.title}</p>
+                            <p className="mt-0.5 text-sm text-muted-foreground">{t.body_markdown}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Important Note */}
+                  <div className="rounded-[--radius] border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/30">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                      Important note
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      Benefits and side effects listed here reflect observed outcomes from published trial data — they
+                      are not a guarantee of individual results. Response varies significantly between patients. Always
+                      discuss expected outcomes and risks with your prescriber before starting or adjusting treatment.
+                    </p>
+                  </div>
                 </div>
               </ProtocolBlock>
             )}
 
-            {studies.length > 0 ? (
-              <ProtocolBlock id="evidence" title="Research evidence" subtitle="Published studies connected to this peptide with dosage and outcomes context.">
+            {/* ── Nutrition & Practical Guidance ── */}
+            {(food.length > 0 || practicalTips.length > 0) && (
+              <ProtocolBlock
+                id="guidance"
+                title="Nutrition & practical guidance"
+                subtitle="Food, hydration, and adherence tips compiled from trial data and clinical companion content."
+              >
+                <div className="space-y-6">
+                  {food.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Food and hydration
+                      </p>
+                      <div className="mt-2 space-y-3">
+                        {(['prefer', 'limit', 'avoid', 'hydrate'] as const)
+                          .filter((c) => foodByCategory[c].length > 0)
+                          .map((cat) => (
+                            <div key={cat}>
+                              <p className="mb-1 text-xs font-semibold text-muted-foreground">{FOOD_LABEL[cat]}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {foodByCategory[cat].map((f) => (
+                                  <span
+                                    key={f.id}
+                                    className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-xs"
+                                  >
+                                    {f.item}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                  {practicalTips.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Adherence tips
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {practicalTips.map((t) => (
+                          <Card key={t.id} className="h-full">
+                            <CardHeader className="pb-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">{t.category}</Badge>
+                                <CardTitle className="text-sm">{t.title}</CardTitle>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-sm leading-relaxed text-muted-foreground">{t.body_markdown}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ProtocolBlock>
+            )}
+
+            {/* ── Safety & Interactions ── */}
+            {(drug.contraindications || interactionList.length > 0 || (!hasReconstitution && drug.storage_handling)) && (
+              <ProtocolBlock
+                id="safety"
+                title="Safety and interactions"
+                subtitle="Share this information with your prescriber for personalised care decisions."
+              >
+                <div className="space-y-4">
+                  {drug.contraindications && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Who should not take this
+                      </p>
+                      <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed">
+                        {drug.contraindications}
+                      </p>
+                    </div>
+                  )}
+                  {interactionList.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Known interactions
+                      </p>
+                      <ul className="mt-1.5 space-y-2">
+                        {interactionList.map((item, idx) => (
+                          <li key={idx} className="text-sm">
+                            {item.drug && <span className="font-medium">{item.drug}</span>}
+                            {item.severity && (
+                              <Badge variant="outline" className="ml-2">
+                                {item.severity}
+                              </Badge>
+                            )}
+                            {item.interaction && (
+                              <p className="mt-0.5 text-muted-foreground">{item.interaction}</p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!hasReconstitution && drug.storage_handling && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Storage and handling
+                      </p>
+                      <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed">
+                        {drug.storage_handling}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </ProtocolBlock>
+            )}
+
+            {/* ── Research Evidence ── */}
+            {studies.length > 0 && (
+              <ProtocolBlock
+                id="evidence"
+                title="Research evidence"
+                subtitle="Published studies connected to this peptide with dosage and outcomes context."
+              >
                 <div className="space-y-3">
                   {studies.map((s) => {
                     const meta = [
@@ -495,45 +904,66 @@ export default async function DrugDetailPage({ params }: Props) {
                       <Card key={s.id}>
                         <CardHeader className="pb-3">
                           <CardTitle className="text-sm leading-snug">{s.title}</CardTitle>
-                          {meta.length > 0 ? <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p> : null}
+                          {meta.length > 0 && (
+                            <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>
+                          )}
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          {s.abstract ? <p className="text-sm leading-relaxed text-muted-foreground">{s.abstract}</p> : null}
-                          {studyOutcomes.length > 0 ? (
+                          {s.abstract && (
+                            <p className="text-sm leading-relaxed text-muted-foreground">{s.abstract}</p>
+                          )}
+                          {studyOutcomes.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reported outcomes</p>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Reported outcomes
+                              </p>
                               <ul className="mt-1 list-disc space-y-1 pl-5">
                                 {studyOutcomes.map((o) => (
                                   <li key={o.id} className="text-sm">
-                                    {o.outcome_type ? <span className="text-muted-foreground">{o.outcome_type}: </span> : null}
+                                    {o.outcome_type && (
+                                      <span className="text-muted-foreground">{o.outcome_type}: </span>
+                                    )}
                                     {o.description}
-                                    {o.significance ? <span className="text-muted-foreground"> ({o.significance})</span> : null}
+                                    {o.significance && (
+                                      <span className="text-muted-foreground"> ({o.significance})</span>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
                             </div>
-                          ) : null}
-                          {studyDosages.length > 0 ? (
+                          )}
+                          {studyDosages.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reported dosage</p>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Reported dosage
+                              </p>
                               <ul className="mt-1 list-disc space-y-1 pl-5">
                                 {studyDosages.map((d) => {
                                   const parts = [
-                                    d.dosage_value != null && d.dosage_unit ? `${d.dosage_value} ${d.dosage_unit}` : null,
+                                    d.dosage_value != null && d.dosage_unit
+                                      ? `${d.dosage_value} ${d.dosage_unit}`
+                                      : null,
                                     d.frequency,
                                     d.duration,
                                   ].filter(Boolean);
                                   return (
                                     <li key={d.id} className="text-sm">
                                       {parts.length > 0 ? parts.join(' · ') : 'See source'}
-                                      {d.context_note ? <span className="text-muted-foreground"> — {d.context_note}</span> : null}
+                                      {d.context_note && (
+                                        <span className="text-muted-foreground"> — {d.context_note}</span>
+                                      )}
                                     </li>
                                   );
                                 })}
                               </ul>
                             </div>
-                          ) : null}
-                          <a href={citation} target="_blank" rel="noopener noreferrer" className="text-xs font-medium hover:underline">
+                          )}
+                          <a
+                            href={citation}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium hover:underline"
+                          >
                             {s.doi ? `DOI: ${s.doi}` : 'Source'} ↗
                           </a>
                         </CardContent>
@@ -542,7 +972,7 @@ export default async function DrugDetailPage({ params }: Props) {
                   })}
                 </div>
               </ProtocolBlock>
-            ) : null}
+            )}
 
             <div className="surface-panel rounded-[--radius-xl] p-6 text-center">
               <p className="text-lg font-semibold">Get the full companion experience in Viora</p>
@@ -563,7 +993,8 @@ export default async function DrugDetailPage({ params }: Props) {
         <MobileSectionRail
           items={[
             { id: 'overview', label: 'Top' },
-            { id: 'guidance', label: 'Guidance' },
+            { id: 'reconstitution', label: 'Dosing' },
+            { id: 'clinical', label: 'Benefits' },
             { id: 'evidence', label: 'Evidence' },
           ]}
           ctaHref="/auth/signup"
