@@ -5,8 +5,8 @@ export default function HomePage() {
   return (
     <main>
       <section className="section-shell section-gap">
-        <div className="surface-panel rounded-[--radius-xl] p-6 sm:p-10">
-          <div className="space-y-6 max-w-3xl">
+        <div className="surface-panel fade-up rounded-[--radius-xl] p-6 sm:p-10">
+          <div className="space-y-6 max-w-3xl fade-up fade-delay-1">
             <p className="eyebrow">Lifestyle guidance · Not medical advice</p>
             <h1 className="text-4xl font-bold tracking-tight leading-tight sm:text-5xl">
               Your protocol-style companion for GLP-1 and weight-management medications
@@ -34,7 +34,7 @@ export default function HomePage() {
             { title: 'Week-by-week flow', body: 'Clear expectation blocks that help reduce uncertainty and improve adherence.' },
             { title: 'Evidence and safety context', body: 'Research-linked detail plus practical caution language throughout.' },
           ].map((f) => (
-            <div key={f.title} className="rounded-[--radius-lg] border border-border bg-card p-5">
+            <div key={f.title} className="motion-lift fade-up fade-delay-2 rounded-[--radius-lg] border border-border bg-card p-5">
               <p className="text-sm font-semibold">{f.title}</p>
               <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{f.body}</p>
             </div>
@@ -53,7 +53,7 @@ export default function HomePage() {
             { href: '/guides', title: 'Essential guides', body: 'Foundational articles on dosing context, side effects, and habits.' },
             { href: '/studies', title: 'Study explorer', body: 'Scan indexed publication summaries and source links.' },
           ].map((item) => (
-            <Link key={item.href} href={item.href} className="group rounded-[--radius-lg] border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40">
+            <Link key={item.href} href={item.href} className="group motion-lift fade-up fade-delay-3 rounded-[--radius-lg] border border-border bg-card p-5 hover:border-primary/40">
               <p className="text-base font-semibold">{item.title}</p>
               <p className="mt-1.5 text-sm text-muted-foreground">{item.body}</p>
               <p className="mt-3 text-xs font-medium text-primary group-hover:underline">Open section →</p>

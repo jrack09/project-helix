@@ -27,7 +27,7 @@ export default async function DrugsIndexPage() {
 
   return (
     <main className="section-shell py-10 space-y-10">
-      <header className="surface-panel rounded-[--radius-xl] p-6 sm:p-8 space-y-4">
+      <header className="surface-panel fade-up rounded-[--radius-xl] p-6 sm:p-8 space-y-4">
         <p className="eyebrow">Viora companion index</p>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Drug companion guides</h1>
         <p className="max-w-2xl text-sm text-muted-foreground sm:text-base leading-relaxed">

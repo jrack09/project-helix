@@ -33,7 +33,7 @@ export function SiteHeader({ email, role }: { email?: string | null; role?: stri
           <summary className="cursor-pointer list-none rounded-md border border-border px-3 py-1.5 text-sm font-medium">
             Menu
           </summary>
-          <div className="absolute right-4 top-14 w-52 rounded-[--radius-lg] border border-border bg-card p-3 shadow-[var(--shadow-card)]">
+          <div className="absolute right-4 top-14 w-60 rounded-[--radius-lg] border border-border bg-card p-3 shadow-[var(--shadow-card)]">
             <div className="flex flex-col gap-2 text-sm">
               <Link href="/peptides" className="rounded px-2 py-1.5 hover:bg-accent">Drugs</Link>
               <Link href="/guides" className="rounded px-2 py-1.5 hover:bg-accent">Guides</Link>
@@ -53,6 +53,24 @@ export function SiteHeader({ email, role }: { email?: string | null; role?: stri
           </div>
         </details>
       </nav>
+      <div className="section-shell pb-2 md:hidden">
+        <div className="scrollbar-none flex gap-2 overflow-x-auto">
+          <Link href="/peptides" className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            Drug guides
+          </Link>
+          <Link href="/guides" className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            Essential guides
+          </Link>
+          <Link href="/studies" className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            Study explorer
+          </Link>
+          {!email ? (
+            <Link href="/auth/signup" className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/15">
+              Start free
+            </Link>
+          ) : null}
+        </div>
+      </div>
     </header>
   );
 }

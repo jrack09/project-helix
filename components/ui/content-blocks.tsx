@@ -41,7 +41,31 @@ export function QuickFactsPanel({ items }: { items: Array<{ label: string; value
   );
 }
 
-export function TOCNav({ items }: { items: Array<{ id: string; label: string }> }) {
+export function TOCNav({
+  items,
+  compact = false,
+}: {
+  items: Array<{ id: string; label: string }>;
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <nav aria-label="Page sections" className="surface-panel rounded-[--radius-lg] p-2">
+        <div className="scrollbar-none flex gap-2 overflow-x-auto px-1 py-1">
+          {items.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="shrink-0 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <nav aria-label="Page sections" className="surface-panel rounded-[--radius-lg] p-3">
       <p className="px-1 text-xs font-semibold uppercase tracking-[0.11em] text-muted-foreground">On this page</p>

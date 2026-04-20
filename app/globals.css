@@ -77,4 +77,44 @@
   .eyebrow {
     @apply inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground;
   }
+
+  .motion-lift {
+    transition: transform 200ms ease, box-shadow 220ms ease, border-color 200ms ease, background-color 200ms ease;
+  }
+
+  .motion-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+  }
+
+  .motion-lift:active {
+    transform: translateY(0);
+  }
+
+  .fade-up {
+    animation: fadeUp 520ms ease both;
+  }
+
+  .fade-delay-1 { animation-delay: 60ms; }
+  .fade-delay-2 { animation-delay: 120ms; }
+  .fade-delay-3 { animation-delay: 180ms; }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }

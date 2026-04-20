@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getRegionNotice } from '@/lib/compliance/region-copy';
-import { QuickFactsPanel, TOCNav, ProtocolBlock } from '@/components/ui/content-blocks';
+import { QuickFactsPanel, ProtocolBlock } from '@/components/ui/content-blocks';
+import { TocScrollSpy } from '@/components/ui/toc-scrollspy';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -121,13 +122,16 @@ export default async function DrugDetailPage({ params }: Props) {
   ];
 
   return (
-    <main className="section-shell py-8 sm:py-10">
+    <main className="section-shell py-8 pb-24 sm:py-10 sm:pb-10">
       <div className="space-y-8">
+        <div className="sticky top-[4.5rem] z-30 lg:hidden">
+          <TocScrollSpy items={tocItems} compact />
+        </div>
         <Link href="/peptides" className="inline-flex text-sm text-muted-foreground transition-colors hover:text-foreground">
           ← All drugs
         </Link>
 
-        <header id="overview" className="space-y-4">
+        <header id="overview" className="space-y-4 fade-up">
           <p className="eyebrow">Drug companion protocol</p>
           <div className="space-y-3">
             <div className="flex flex-wrap items-start gap-2.5">
@@ -446,13 +450,20 @@ export default async function DrugDetailPage({ params }: Props) {
 
           <aside className="hidden lg:block">
             <div className="sticky top-24">
-              <TOCNav items={tocItems} />
+              <TocScrollSpy items={tocItems} />
             </div>
           </aside>
         </div>
 
-        <div className="lg:hidden">
-          <TOCNav items={tocItems} />
+        <div className="fixed inset-x-0 bottom-3 z-30 px-4 lg:hidden">
+          <div className="mx-auto flex max-w-md items-center justify-between gap-2 rounded-full border border-border bg-background/95 p-2 shadow-[var(--shadow-card)] backdrop-blur">
+            <a href="#overview" className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">Top</a>
+            <a href="#guidance" className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">Guidance</a>
+            <a href="#evidence" className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">Evidence</a>
+            <Link href="/auth/signup" className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+              App signup
+            </Link>
+          </div>
         </div>
       </div>
     </main>
