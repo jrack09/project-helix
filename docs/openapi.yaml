@@ -1,0 +1,258 @@
+openapi: 3.1.0
+info:
+  title: PIP Drug Companion API
+  version: v1
+  description: |
+    Drug companion content API for Viora. Provides per-drug companion data —
+    weekly expectations, food guidance, tips, side-effect coping strategies.
+    All responses include a mandatory disclaimer object that Viora must render prominently.
+servers:
+  - url: https://{host}/api/public
+    variables:
+      host:
+        default: localhost:3000
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token issued by PIP admin. Prefix must be `pip_`.
+
+  schemas:
+    Disclaimer:
+      type: object
+      required: [text, version, as_of]
+      properties:
+        text:
+          type: string
+          description: Disclaimer text. Must be rendered prominently in Viora UI.
+        version:
+          type: string
+          example: "1.0"
+        as_of:
+          type: string
+          format: date
+          example: "2026-04-20"
+
+    Meta:
+      type: object
+      required: [version, last_updated]
+      properties:
+        version:
+          type: string
+          enum: [v1]
+        last_updated:
+          type: string
+          format: date-time
+
+    DrugSummary:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        slug:        { type: string, example: semaglutide-wegovy }
+        name:        { type: string, example: "Semaglutide (Wegovy)" }
+        generic_name: { type: string, nullable: true }
+        brand_names: { type: array, items: { type: string } }
+        drug_class:  { type: string, nullable: true }
+        short_description: { type: string, nullable: true }
+        administration_route: { type: string, nullable: true }
+        prescription_required: { type: boolean }
+        evidence_score: { type: integer, nullable: true, minimum: 0, maximum: 100 }
+        updated_at:  { type: string, format: date-time }
+
+    Expectation:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        week_number: { type: integer, minimum: 0 }
+        milestone:   { type: string }
+        description: { type: string }
+        is_common:   { type: boolean }
+
+    FoodGuidance:
+      type: object
+      properties:
+        id:       { type: string, format: uuid }
+        category: { type: string, enum: [prefer, limit, avoid, hydrate] }
+        item:     { type: string }
+        rationale: { type: string, nullable: true }
+        evidence_level: { type: string, enum: [anecdotal, editorial, study_backed] }
+        ordinal:  { type: integer }
+
+    Tip:
+      type: object
+      properties:
+        id:       { type: string, format: uuid }
+        category: { type: string, enum: [administration, timing, mindset, exercise, sleep, hydration, nutrition, other] }
+        title:    { type: string }
+        body_markdown: { type: string }
+        ordinal:  { type: integer }
+
+    SideEffectTip:
+      type: object
+      properties:
+        id:               { type: string, format: uuid }
+        strategy:         { type: string }
+        when_to_seek_help: { type: string, nullable: true }
+        ordinal:          { type: integer }
+
+    SideEffect:
+      type: object
+      properties:
+        id:        { type: string, format: uuid }
+        effect:    { type: string }
+        severity:  { type: string, nullable: true }
+        frequency: { type: string, nullable: true }
+        drug_side_effect_tips:
+          type: array
+          items: { $ref: '#/components/schemas/SideEffectTip' }
+
+    TrackerHints:
+      type: object
+      properties:
+        biomarkers:
+          type: array
+          items:
+            type: string
+            enum: [weight_kg, waist_cm, nausea_0_10, appetite_0_10, energy_0_10, hydration_l, blood_glucose_mmol, injection_site_reaction]
+        cadence:
+          type: string
+          enum: [daily, weekly]
+        notes:
+          type: string
+          nullable: true
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+paths:
+  /drugs:
+    get:
+      summary: List published drug companions
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 50 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      drugs:
+                        type: array
+                        items: { $ref: '#/components/schemas/DrugSummary' }
+                      total: { type: integer }
+                      page:  { type: integer }
+                      limit: { type: integer }
+                  disclaimer: { $ref: '#/components/schemas/Disclaimer' }
+                  meta:       { $ref: '#/components/schemas/Meta' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /drugs/{slug}:
+    get:
+      summary: Full companion profile for a drug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      drug:         { $ref: '#/components/schemas/DrugSummary' }
+                      expectations: { type: array, items: { $ref: '#/components/schemas/Expectation' } }
+                      food_guidance: { type: array, items: { $ref: '#/components/schemas/FoodGuidance' } }
+                      tips:         { type: array, items: { $ref: '#/components/schemas/Tip' } }
+                      side_effects: { type: array, items: { $ref: '#/components/schemas/SideEffect' } }
+                  disclaimer: { $ref: '#/components/schemas/Disclaimer' }
+                  meta:       { $ref: '#/components/schemas/Meta' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Drug not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /drugs/{slug}/expectations:
+    get:
+      summary: Expectations for a drug (optionally filtered by week)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+        - name: week
+          in: query
+          schema: { type: integer }
+          description: Return only this week number
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      expectations:
+                        type: array
+                        items: { $ref: '#/components/schemas/Expectation' }
+                  disclaimer: { $ref: '#/components/schemas/Disclaimer' }
+                  meta:       { $ref: '#/components/schemas/Meta' }
+
+  /drugs/{slug}/tracker-hints:
+    get:
+      summary: Biomarker tracking hints for a drug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      tracker_hints: { $ref: '#/components/schemas/TrackerHints' }
+                  disclaimer: { $ref: '#/components/schemas/Disclaimer' }
+                  meta:       { $ref: '#/components/schemas/Meta' }
