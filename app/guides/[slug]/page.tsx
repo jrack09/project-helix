@@ -26,8 +26,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   if (!guide) notFound();
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12 space-y-8">
-      <div className="space-y-1">
+    <main className="section-shell max-w-3xl py-10 space-y-8">
+      <div className="surface-panel rounded-[--radius-xl] p-6 sm:p-8 space-y-2">
         <p className="text-xs text-muted-foreground uppercase tracking-wide">
           {CATEGORY_LABELS[guide.category] ?? guide.category}
         </p>
@@ -38,8 +38,10 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         )}
       </div>
 
-      <div className="prose prose-sm max-w-none text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1 [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:pl-5 [&_ul]:space-y-1 [&_li]:text-sm [&_strong]:font-semibold">
+      <div className="rounded-[--radius-lg] border border-border bg-card p-5 sm:p-6">
+        <div className="prose prose-sm max-w-none text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1 [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:pl-5 [&_ul]:space-y-1 [&_li]:text-sm [&_strong]:font-semibold">
         <ReactMarkdown>{guide.body_markdown}</ReactMarkdown>
+        </div>
       </div>
 
       <div className="border-t border-border pt-6 space-y-2">

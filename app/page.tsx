@@ -3,45 +3,76 @@ import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
   return (
-    <main className="mx-auto max-w-5xl px-6 py-20 space-y-10">
-      <div className="space-y-6 max-w-3xl">
-        <div className="inline-flex items-center rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-          Lifestyle guidance · Not medical advice
-        </div>
-        <h1 className="text-5xl font-bold tracking-tight leading-tight">
-          Your companion for GLP-1s and weight-management medications
-        </h1>
-        <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
-          Week-by-week expectations, food guidance, coping tips for side effects, and tracking —
-          all in one place. Built for people who want to get the most from their treatment.
-        </p>
-        <div className="flex flex-wrap gap-3 pt-2">
-          <Button asChild size="lg">
-            <Link href="/peptides">Browse drug companions</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link href="/auth/signup">Start free</Link>
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid sm:grid-cols-3 gap-4 pt-6">
-        {[
-          { title: 'What to expect', body: 'Week-by-week milestones so you\'re never caught off guard by what\'s normal.' },
-          { title: 'Food & hydration', body: 'What to eat more of, what to limit, and how to stay hydrated to reduce side effects.' },
-          { title: 'Side-effect coping', body: 'Practical strategies for common issues like nausea, fatigue, and injection-site reactions.' },
-        ].map((f) => (
-          <div key={f.title} className="rounded-[--radius] border border-border p-5 space-y-2">
-            <p className="font-semibold text-sm">{f.title}</p>
-            <p className="text-sm text-muted-foreground leading-relaxed">{f.body}</p>
+    <main>
+      <section className="section-shell section-gap">
+        <div className="surface-panel rounded-[--radius-xl] p-6 sm:p-10">
+          <div className="space-y-6 max-w-3xl">
+            <p className="eyebrow">Lifestyle guidance · Not medical advice</p>
+            <h1 className="text-4xl font-bold tracking-tight leading-tight sm:text-5xl">
+              Your protocol-style companion for GLP-1 and weight-management medications
+            </h1>
+            <p className="text-base text-muted-foreground leading-relaxed sm:text-lg max-w-2xl">
+              Quickly understand what to expect, what to track, and how to stay consistent week to week.
+              Designed for mobile-first use inside your Viora routine.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-1">
+              <Button asChild size="lg">
+                <Link href="/peptides">Browse drug companions</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href="/auth/signup">Start free</Link>
+              </Button>
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      </section>
 
-      <p className="text-xs text-muted-foreground max-w-2xl">
-        General lifestyle information only — not medical advice. Always follow your prescriber's instructions.
-        Regulatory status and prescription requirements vary by jurisdiction.
-      </p>
+      <section className="section-shell pb-6">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            { title: 'Quickstart highlights', body: 'Scan high-signal guidance in seconds before diving into details.' },
+            { title: 'Week-by-week flow', body: 'Clear expectation blocks that help reduce uncertainty and improve adherence.' },
+            { title: 'Evidence and safety context', body: 'Research-linked detail plus practical caution language throughout.' },
+          ].map((f) => (
+            <div key={f.title} className="rounded-[--radius-lg] border border-border bg-card p-5">
+              <p className="text-sm font-semibold">{f.title}</p>
+              <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{f.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section-shell section-gap">
+        <div className="space-y-3">
+          <p className="eyebrow">Start here</p>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Choose your pathway</h2>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { href: '/peptides', title: 'Drug companions', body: 'Protocol-style long-form guidance for each medication.' },
+            { href: '/guides', title: 'Essential guides', body: 'Foundational articles on dosing context, side effects, and habits.' },
+            { href: '/studies', title: 'Study explorer', body: 'Scan indexed publication summaries and source links.' },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} className="group rounded-[--radius-lg] border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40">
+              <p className="text-base font-semibold">{item.title}</p>
+              <p className="mt-1.5 text-sm text-muted-foreground">{item.body}</p>
+              <p className="mt-3 text-xs font-medium text-primary group-hover:underline">Open section →</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="section-shell pb-14">
+        <div className="rounded-[--radius-xl] border border-border bg-muted/35 p-6 sm:p-8 text-center space-y-3">
+          <p className="text-lg font-semibold">Built to support Viora app users</p>
+          <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+            Use the site for clear guidance and the app for reminders, progress tracking, and day-to-day adherence.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            General lifestyle information only — not medical advice.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

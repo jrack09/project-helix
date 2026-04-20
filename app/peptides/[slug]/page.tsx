@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getRegionNotice } from '@/lib/compliance/region-copy';
+import { QuickFactsPanel, TOCNav, ProtocolBlock } from '@/components/ui/content-blocks';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -96,322 +97,284 @@ export default async function DrugDetailPage({ params }: Props) {
     {} as Record<string, typeof food>,
   );
 
+  const tocItems = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'expectations', label: 'What to expect' },
+    { id: 'guidance', label: 'Food and practical guidance' },
+    { id: 'safety', label: 'Safety and interactions' },
+    { id: 'evidence', label: 'Research evidence' },
+  ];
+
+  const quickFacts = [
+    { label: 'Drug Class', value: drug.drug_class || 'General companion info' },
+    { label: 'Route', value: drug.administration_route || 'See prescribing information' },
+    { label: 'Schedule', value: drug.typical_dosing_schedule || 'Individualized by prescriber' },
+    { label: 'Evidence', value: drug.evidence_score != null ? String(drug.evidence_score) : 'Published literature linked below' },
+  ];
+
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10 space-y-10">
-      {/* Back nav */}
-      <Link href="/peptides" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-        ← All drugs
-      </Link>
+    <main className="section-shell py-8 sm:py-10">
+      <div className="space-y-8">
+        <Link href="/peptides" className="inline-flex text-sm text-muted-foreground transition-colors hover:text-foreground">
+          ← All drugs
+        </Link>
 
-      {/* Header */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-start gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">{drug.name}</h1>
-          {drug.prescription_required && <Badge>Prescription only</Badge>}
-          {drug.drug_class && <Badge variant="secondary">{drug.drug_class}</Badge>}
-        </div>
-        {brands.length > 0 && (
-          <p className="text-sm text-muted-foreground">Also known as: {brands.join(', ')}</p>
-        )}
-        {drug.short_description && (
-          <p className="text-base text-muted-foreground leading-relaxed">{drug.short_description}</p>
-        )}
-      </div>
-
-      {/* Disclaimer */}
-      <Alert variant="info">
-        <AlertDescription className="text-sm">
-          <strong>General information only — not medical advice.</strong> Always follow your prescriber's instructions.
-          {regionNote && <> {regionNote}</>}
-        </AlertDescription>
-      </Alert>
-
-      {/* Mechanism */}
-      {drug.mechanism_summary && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">How it works</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed">{drug.mechanism_summary}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Dosing schedule (descriptive) */}
-      {drug.typical_dosing_schedule && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Typical dosing schedule</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed">{drug.typical_dosing_schedule}</p>
-            <p className="text-xs text-muted-foreground mt-3">
-              Dosing is always prescribed and managed by your healthcare provider. This is general context, not a prescription.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Weekly expectations */}
-      {expectations.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">What to expect</h2>
+        <header id="overview" className="space-y-4">
+          <p className="eyebrow">Drug companion protocol</p>
           <div className="space-y-3">
-            {expectations.map((e) => (
-              <div key={e.id} className="flex gap-4 items-start">
-                <Badge variant="outline" className="shrink-0 mt-0.5">Week {e.week_number}</Badge>
-                <div>
-                  <p className="text-sm font-medium">{e.milestone}</p>
-                  <p className="text-sm text-muted-foreground mt-0.5">{e.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Food guidance */}
-      {food.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Food & nutrition guidance</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {(['prefer', 'limit', 'avoid', 'hydrate'] as const).filter((c) => foodByCategory[c].length > 0).map((cat) => (
-              <div key={cat}>
-                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">{FOOD_LABEL[cat]}</p>
-                <div className="flex flex-wrap gap-2">
-                  {foodByCategory[cat].map((f) => (
-                    <span key={f.id} className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 text-xs">
-                      {f.item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-            <p className="text-xs text-muted-foreground mt-2">
-              General dietary suggestions — not a prescription diet plan. Consult a dietitian for individual advice.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Tips */}
-      {tips.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Tips for getting the most from your treatment</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {tips.map((t) => (
-              <Card key={t.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">{t.category}</Badge>
-                    <CardTitle className="text-sm">{t.title}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{t.body_markdown}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Side effects */}
-      {sideEffects.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Common side effects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {sideEffects.map((s) => (
-                <span key={s.id} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-xs">
-                  {s.effect}
-                  {s.severity && <span className="text-muted-foreground">({s.severity})</span>}
-                </span>
-              ))}
+            <div className="flex flex-wrap items-start gap-2.5">
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{drug.name}</h1>
+              {drug.prescription_required && <Badge>Prescription only</Badge>}
+              {drug.drug_class && <Badge variant="secondary">{drug.drug_class}</Badge>}
             </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              If you experience severe or persistent side effects, contact your prescriber or seek medical attention immediately.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Contraindications */}
-      {drug.contraindications && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Who should not take this</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm leading-relaxed whitespace-pre-line">{drug.contraindications}</p>
-            <p className="text-xs text-muted-foreground">
-              This is a general list — always disclose your full medical history to your prescriber so they can determine whether this medicine is appropriate for you.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Drug interactions */}
-      {interactionList.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Known drug interactions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <ul className="space-y-2">
-              {interactionList.map((i, idx) => (
-                <li key={idx} className="text-sm">
-                  {i.drug && <span className="font-medium">{i.drug}</span>}
-                  {i.severity && (
-                    <Badge variant="outline" className="ml-2 text-xs">{i.severity}</Badge>
-                  )}
-                  {i.interaction && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{i.interaction}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-muted-foreground">
-              Give your prescriber a complete list of every prescription, over-the-counter, supplement, and herbal product you take.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Storage & handling */}
-      {drug.storage_handling && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Storage & handling</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed whitespace-pre-line">{drug.storage_handling}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Pharmacokinetics */}
-      {pkEntries.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pharmacokinetics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
-              {pkEntries.map(([k, v]) => (
-                <div key={k}>
-                  <dt className="text-xs font-semibold text-muted-foreground uppercase">{PK_LABEL[k] ?? k.replace(/_/g, ' ')}</dt>
-                  <dd className="text-sm mt-0.5">{v}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="text-xs text-muted-foreground">
-              Values are drawn from published pharmacology — individual absorption and clearance vary.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* What the research shows */}
-      {studies.length > 0 && (
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold">What the research shows</h2>
-            <p className="text-sm text-muted-foreground">
-              Indexed publications tied to this peptide. Metadata is for research navigation — not a prescription or clinical recommendation.
-            </p>
+            {brands.length > 0 ? <p className="text-sm text-muted-foreground">Also known as: {brands.join(', ')}</p> : null}
+            {drug.short_description ? (
+              <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">{drug.short_description}</p>
+            ) : null}
           </div>
-          <div className="space-y-3">
-            {studies.map((s) => {
-              const meta = [
-                STUDY_TYPE_LABEL[s.study_type] ?? s.study_type,
-                s.publication_date ? new Date(s.publication_date).getFullYear() : null,
-                s.journal,
-                s.sample_size != null ? `n=${s.sample_size}` : null,
-                s.population,
-              ].filter(Boolean);
-              const studyDosages = dosagesByStudy[s.id] ?? [];
-              const studyOutcomes = outcomesByStudy[s.id] ?? [];
-              const citation = s.doi ? `https://doi.org/${s.doi}` : s.source_url;
-              return (
-                <Card key={s.id}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm leading-snug">{s.title}</CardTitle>
-                    {meta.length > 0 && (
-                      <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {s.abstract && (
-                      <p className="text-sm text-muted-foreground leading-relaxed">{s.abstract}</p>
-                    )}
-                    {studyOutcomes.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase">Reported outcomes</p>
-                        <ul className="list-disc pl-5 space-y-1">
-                          {studyOutcomes.map((o) => (
-                            <li key={o.id} className="text-sm">
-                              {o.outcome_type && <span className="text-muted-foreground">{o.outcome_type}: </span>}
-                              {o.description}
-                              {o.significance && <span className="text-muted-foreground"> ({o.significance})</span>}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {studyDosages.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase">Dosage reported in study</p>
-                        <ul className="list-disc pl-5 space-y-1">
-                          {studyDosages.map((d) => {
-                            const parts = [
-                              d.dosage_value != null && d.dosage_unit ? `${d.dosage_value} ${d.dosage_unit}` : null,
-                              d.frequency,
-                              d.duration,
-                            ].filter(Boolean);
-                            return (
-                              <li key={d.id} className="text-sm">
-                                {parts.length > 0 ? parts.join(' · ') : 'See source'}
-                                {d.context_note && <span className="text-muted-foreground"> — {d.context_note}</span>}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-3 pt-1 text-xs">
-                      <a
-                        href={citation}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium hover:underline"
-                      >
-                        {s.doi ? `DOI: ${s.doi}` : 'Source'} ↗
-                      </a>
+          <QuickFactsPanel items={quickFacts} />
+          <Alert variant="info">
+            <AlertDescription className="text-sm">
+              <strong>General information only — not medical advice.</strong> Always follow your prescriber's instructions.
+              {regionNote ? <> {regionNote}</> : null}
+            </AlertDescription>
+          </Alert>
+        </header>
+
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className="space-y-8">
+            {(drug.mechanism_summary || drug.typical_dosing_schedule || expectations.length > 0) && (
+              <ProtocolBlock id="expectations" title="What to expect" subtitle="How this medication is generally described in evidence-backed companion content.">
+                <div className="space-y-5">
+                  {drug.mechanism_summary ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How it works</p>
+                      <p className="mt-1.5 text-sm leading-relaxed">{drug.mechanism_summary}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Reported study dosages describe what was administered in published trials. They are not dosing guidance for you — your prescriber determines appropriate dosing for your situation.
-          </p>
-        </section>
-      )}
+                  ) : null}
+                  {drug.typical_dosing_schedule ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Typical schedule context</p>
+                      <p className="mt-1.5 text-sm leading-relaxed">{drug.typical_dosing_schedule}</p>
+                    </div>
+                  ) : null}
+                  {expectations.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week-by-week milestones</p>
+                      {expectations.map((e) => (
+                        <div key={e.id} className="rounded-[--radius] border border-border/85 bg-background p-3">
+                          <div className="flex items-start gap-2">
+                            <Badge variant="outline" className="mt-0.5 shrink-0">
+                              Week {e.week_number}
+                            </Badge>
+                            <div>
+                              <p className="text-sm font-semibold">{e.milestone}</p>
+                              <p className="text-sm text-muted-foreground">{e.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </ProtocolBlock>
+            )}
 
-      {/* App CTA */}
-      <div className="rounded-[--radius] border border-border bg-muted/30 p-6 text-center space-y-3">
-        <p className="font-semibold">Get the full companion experience in Viora</p>
-        <p className="text-sm text-muted-foreground">
-          Week-by-week reminders, food & symptom tracking, and the complete companion guide — all in the Viora app.
-        </p>
-        <p className="text-xs text-muted-foreground">Available on iOS and Android.</p>
+            {(food.length > 0 || tips.length > 0 || sideEffects.length > 0) && (
+              <ProtocolBlock id="guidance" title="Food and practical guidance" subtitle="Daily-use support information designed for fast mobile scanning.">
+                <div className="space-y-6">
+                  {food.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Food and hydration</p>
+                      <div className="mt-2 space-y-3">
+                        {(['prefer', 'limit', 'avoid', 'hydrate'] as const)
+                          .filter((c) => foodByCategory[c].length > 0)
+                          .map((cat) => (
+                            <div key={cat}>
+                              <p className="mb-1 text-xs font-semibold text-muted-foreground">{FOOD_LABEL[cat]}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {foodByCategory[cat].map((f) => (
+                                  <span key={f.id} className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-xs">
+                                    {f.item}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {tips.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tips to improve adherence</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {tips.map((t) => (
+                          <Card key={t.id} className="h-full">
+                            <CardHeader className="pb-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">{t.category}</Badge>
+                                <CardTitle className="text-sm">{t.title}</CardTitle>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-sm leading-relaxed text-muted-foreground">{t.body_markdown}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {sideEffects.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Common side effects</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {sideEffects.map((s) => (
+                          <span key={s.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs">
+                            {s.effect}
+                            {s.severity ? <span className="text-muted-foreground">({s.severity})</span> : null}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </ProtocolBlock>
+            )}
+
+            {(drug.contraindications || interactionList.length > 0 || drug.storage_handling || pkEntries.length > 0) && (
+              <ProtocolBlock id="safety" title="Safety and interactions" subtitle="Share this information with your prescriber for personalized care decisions.">
+                <div className="space-y-4">
+                  {drug.contraindications ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Who should not take this</p>
+                      <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed">{drug.contraindications}</p>
+                    </div>
+                  ) : null}
+                  {interactionList.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Known interactions</p>
+                      <ul className="mt-1.5 space-y-1.5">
+                        {interactionList.map((i, idx) => (
+                          <li key={idx} className="text-sm">
+                            {i.drug ? <span className="font-medium">{i.drug}</span> : null}
+                            {i.severity ? <Badge variant="outline" className="ml-2">{i.severity}</Badge> : null}
+                            {i.interaction ? <p className="text-muted-foreground">{i.interaction}</p> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {drug.storage_handling ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Storage and handling</p>
+                      <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed">{drug.storage_handling}</p>
+                    </div>
+                  ) : null}
+                  {pkEntries.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pharmacokinetics</p>
+                      <dl className="mt-1.5 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                        {pkEntries.map(([k, v]) => (
+                          <div key={k}>
+                            <dt className="text-xs font-semibold text-muted-foreground">{PK_LABEL[k] ?? k.replace(/_/g, ' ')}</dt>
+                            <dd className="text-sm">{v}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  ) : null}
+                </div>
+              </ProtocolBlock>
+            )}
+
+            {studies.length > 0 ? (
+              <ProtocolBlock id="evidence" title="Research evidence" subtitle="Published studies connected to this peptide with dosage and outcomes context.">
+                <div className="space-y-3">
+                  {studies.map((s) => {
+                    const meta = [
+                      STUDY_TYPE_LABEL[s.study_type] ?? s.study_type,
+                      s.publication_date ? new Date(s.publication_date).getFullYear() : null,
+                      s.journal,
+                      s.sample_size != null ? `n=${s.sample_size}` : null,
+                      s.population,
+                    ].filter(Boolean);
+                    const studyDosages = dosagesByStudy[s.id] ?? [];
+                    const studyOutcomes = outcomesByStudy[s.id] ?? [];
+                    const citation = s.doi ? `https://doi.org/${s.doi}` : s.source_url;
+                    return (
+                      <Card key={s.id}>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm leading-snug">{s.title}</CardTitle>
+                          {meta.length > 0 ? <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p> : null}
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {s.abstract ? <p className="text-sm leading-relaxed text-muted-foreground">{s.abstract}</p> : null}
+                          {studyOutcomes.length > 0 ? (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reported outcomes</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-5">
+                                {studyOutcomes.map((o) => (
+                                  <li key={o.id} className="text-sm">
+                                    {o.outcome_type ? <span className="text-muted-foreground">{o.outcome_type}: </span> : null}
+                                    {o.description}
+                                    {o.significance ? <span className="text-muted-foreground"> ({o.significance})</span> : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {studyDosages.length > 0 ? (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reported dosage</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-5">
+                                {studyDosages.map((d) => {
+                                  const parts = [
+                                    d.dosage_value != null && d.dosage_unit ? `${d.dosage_value} ${d.dosage_unit}` : null,
+                                    d.frequency,
+                                    d.duration,
+                                  ].filter(Boolean);
+                                  return (
+                                    <li key={d.id} className="text-sm">
+                                      {parts.length > 0 ? parts.join(' · ') : 'See source'}
+                                      {d.context_note ? <span className="text-muted-foreground"> — {d.context_note}</span> : null}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          ) : null}
+                          <a href={citation} target="_blank" rel="noopener noreferrer" className="text-xs font-medium hover:underline">
+                            {s.doi ? `DOI: ${s.doi}` : 'Source'} ↗
+                          </a>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </ProtocolBlock>
+            ) : null}
+
+            <div className="surface-panel rounded-[--radius-xl] p-6 text-center">
+              <p className="text-lg font-semibold">Get the full companion experience in Viora</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Week-by-week reminders, food and symptom tracking, and the complete companion guide in one place.
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">Available on iOS and Android.</p>
+            </div>
+          </div>
+
+          <aside className="hidden lg:block">
+            <div className="sticky top-24">
+              <TOCNav items={tocItems} />
+            </div>
+          </aside>
+        </div>
+
+        <div className="lg:hidden">
+          <TOCNav items={tocItems} />
+        </div>
       </div>
     </main>
   );

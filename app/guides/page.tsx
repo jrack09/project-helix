@@ -29,10 +29,11 @@ export default async function GuidesPage() {
   const categoryOrder = ['getting_started', 'administration', 'nutrition', 'side_effects', 'lifestyle', 'other'];
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12 space-y-12">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Essential Guides</h1>
-        <p className="text-muted-foreground max-w-2xl">
+    <main className="section-shell py-10 space-y-10">
+      <div className="surface-panel rounded-[--radius-xl] p-6 sm:p-8 space-y-2">
+        <p className="eyebrow">Learn</p>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Essential Guides</h1>
+        <p className="text-muted-foreground max-w-2xl text-sm sm:text-base">
           New to GLP-1 medications? Start here. These guides cover what you need to know to get the most from your treatment.
         </p>
       </div>
@@ -46,12 +47,12 @@ export default async function GuidesPage() {
         .map((cat) => (
           <section key={cat} className="space-y-4">
             <h2 className="text-lg font-semibold">{CATEGORY_LABELS[cat]}</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {byCategory[cat]!.map((g) => (
                 <Link
                   key={g!.slug}
                   href={`/guides/${g!.slug}`}
-                  className="group rounded-lg border border-border p-5 space-y-2 hover:border-foreground/30 transition-colors"
+                  className="group rounded-[--radius-lg] border border-border bg-card p-5 space-y-2 transition-all hover:-translate-y-0.5 hover:border-primary/35"
                 >
                   {g!.cover_emoji && (
                     <span className="text-2xl">{g!.cover_emoji}</span>

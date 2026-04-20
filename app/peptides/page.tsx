@@ -26,24 +26,28 @@ export default async function DrugsIndexPage() {
   const investigational = (drugs ?? []).filter((d) => !d.prescription_required);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12 space-y-12">
-      <div className="space-y-3 max-w-2xl">
-        <h1 className="text-3xl font-bold tracking-tight">Drug companion guides</h1>
-        <p className="text-muted-foreground text-base leading-relaxed">
+    <main className="section-shell py-10 space-y-10">
+      <header className="surface-panel rounded-[--radius-xl] p-6 sm:p-8 space-y-4">
+        <p className="eyebrow">Viora companion index</p>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Drug companion guides</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground sm:text-base leading-relaxed">
           General lifestyle information for people starting GLP-1s and related weight-management medications.
           Not medical advice — always follow your prescriber's instructions.
         </p>
-      </div>
+      </header>
 
       {prescribed.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Prescription medications</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Prescription medications</h2>
+            <Badge variant="outline">{prescribed.length} guides</Badge>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             {prescribed.map((drug) => {
               const brands = Array.isArray(drug.brand_names) ? (drug.brand_names as string[]) : [];
               return (
                 <Link key={drug.id} href={`/peptides/${drug.slug}`}>
-                  <Card className="h-full hover:border-primary/40 transition-colors">
+                  <Card className="h-full hover:border-primary/40">
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle className="text-base">{drug.name}</CardTitle>
@@ -53,14 +57,11 @@ export default async function DrugsIndexPage() {
                           </Badge>
                         )}
                       </div>
-                      {brands.length > 0 && (
-                        <CardDescription>{brands.join(', ')}</CardDescription>
-                      )}
+                      {brands.length > 0 && <CardDescription>{brands.join(', ')}</CardDescription>}
                     </CardHeader>
                     <CardContent>
-                      {drug.short_description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{drug.short_description}</p>
-                      )}
+                      {drug.short_description && <p className="text-sm text-muted-foreground line-clamp-2">{drug.short_description}</p>}
+                      <p className="mt-3 text-xs font-medium text-primary">Open protocol →</p>
                     </CardContent>
                   </Card>
                 </Link>
@@ -72,12 +73,15 @@ export default async function DrugsIndexPage() {
 
       {investigational.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Investigational peptides</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Investigational peptides</h2>
+            <Badge variant="outline">{investigational.length} guides</Badge>
+          </div>
           <p className="text-sm text-muted-foreground">Not approved for human therapeutic use. Research context only.</p>
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             {investigational.map((drug) => (
               <Link key={drug.id} href={`/peptides/${drug.slug}`}>
-                <Card className="h-full hover:border-primary/40 transition-colors">
+                <Card className="h-full hover:border-primary/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">{drug.name}</CardTitle>
                     <CardDescription>{drug.drug_class}</CardDescription>
@@ -86,6 +90,7 @@ export default async function DrugsIndexPage() {
                     {drug.short_description && (
                       <p className="text-sm text-muted-foreground line-clamp-2">{drug.short_description}</p>
                     )}
+                    <p className="mt-3 text-xs font-medium text-primary">Open protocol →</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -94,9 +99,7 @@ export default async function DrugsIndexPage() {
         </section>
       )}
 
-      {(!drugs || drugs.length === 0) && (
-        <p className="text-muted-foreground">No drug companions published yet.</p>
-      )}
+      {!drugs || drugs.length === 0 ? <p className="text-muted-foreground">No drug companions published yet.</p> : null}
     </main>
   );
 }

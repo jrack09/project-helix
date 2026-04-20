@@ -69,10 +69,11 @@ export default async function StudiesExplorerPage({ searchParams }: { searchPara
   const list = (studies ?? []) as StudyRow[];
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12 space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Study explorer</h1>
-        <p className="text-muted-foreground max-w-2xl text-sm">
+    <main className="section-shell py-10 space-y-8">
+      <div className="surface-panel rounded-[--radius-xl] p-6 sm:p-8 space-y-2">
+        <p className="eyebrow">Evidence</p>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Study explorer</h1>
+        <p className="text-muted-foreground max-w-2xl text-sm sm:text-base">
           Filter indexed publications. Metadata is extracted for research navigation — not to direct clinical decisions.
         </p>
       </div>
@@ -81,7 +82,7 @@ export default async function StudiesExplorerPage({ searchParams }: { searchPara
         <p className="text-sm text-muted-foreground">No peptide matches slug &ldquo;{peptideSlug}&rdquo;. Clear the peptide filter to see all studies.</p>
       )}
 
-      <form method="get" className="rounded-lg border border-border p-5 space-y-4 max-w-xl">
+      <form method="get" className="surface-panel rounded-[--radius-lg] p-5 space-y-4 max-w-xl">
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground" htmlFor="study_type">Study type</label>
           <select
@@ -128,7 +129,7 @@ export default async function StudiesExplorerPage({ searchParams }: { searchPara
 
       <ul className="space-y-4 list-none p-0">
         {list.map((s) => (
-          <li key={s.id} className="rounded-lg border border-border p-5 space-y-2">
+          <li key={s.id} className="rounded-[--radius-lg] border border-border bg-card p-5 space-y-2 shadow-[var(--shadow-soft)]">
             <strong className="text-sm font-semibold">{s.title}</strong>
             <span className="block text-xs text-muted-foreground">
               {s.study_type.replace(/_/g, ' ')}
