@@ -2,36 +2,34 @@ import Link from 'next/link';
 import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { Button } from '@/components/ui/button';
 import { Table, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DrugTableRows } from './drug-table-rows';
+import { GuideTableRows } from './guide-table-rows';
 
-export default async function AdminDrugsPage({
+export default async function AdminGuidesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string }>;
 }) {
-  const { status, q } = await searchParams;
+  const { status } = await searchParams;
   const supabase = createAdminSupabaseClient();
 
   let query = supabase
-    .from('peptides')
-    .select('id, slug, name, generic_name, drug_class, publication_status, evidence_score, updated_at')
-    .order('name', { ascending: true });
+    .from('guides')
+    .select('id, slug, title, category, publication_status, ordinal, updated_at')
+    .order('ordinal', { ascending: true })
+    .order('title', { ascending: true });
 
   if (status && ['draft', 'in_review', 'published', 'archived'].includes(status)) {
     query = query.eq('publication_status', status as 'draft' | 'in_review' | 'published' | 'archived');
   }
-  if (q) {
-    query = query.ilike('name', `%${q}%`);
-  }
 
-  const { data: drugs } = await query;
+  const { data: guides } = await query;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Drugs</h1>
+        <h1 className="text-2xl font-bold">Guides</h1>
         <Button asChild>
-          <Link href="/admin/drugs/new">+ New drug</Link>
+          <Link href="/admin/guides/new">+ New guide</Link>
         </Button>
       </div>
 
@@ -39,7 +37,7 @@ export default async function AdminDrugsPage({
         {(['', 'draft', 'in_review', 'published', 'archived'] as const).map((s) => (
           <Link
             key={s || 'all'}
-            href={s ? `/admin/drugs?status=${s}` : '/admin/drugs'}
+            href={s ? `/admin/guides?status=${s}` : '/admin/guides'}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               (status ?? '') === s
                 ? 'bg-primary text-primary-foreground border-primary'
@@ -51,25 +49,22 @@ export default async function AdminDrugsPage({
         ))}
       </div>
 
-      {!drugs?.length ? (
+      {!guides?.length ? (
         <p className="text-sm text-muted-foreground py-12 text-center">
-          No drugs found.{' '}
-          <Link href="/admin/drugs/new" className="underline">
-            Add the first one.
-          </Link>
+          No guides yet.{' '}
+          <Link href="/admin/guides/new" className="underline">Add the first one.</Link>
         </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Class</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Evidence</TableHead>
               <TableHead>Updated</TableHead>
             </TableRow>
           </TableHeader>
-          <DrugTableRows drugs={drugs} />
+          <GuideTableRows guides={guides} />
         </Table>
       )}
     </div>

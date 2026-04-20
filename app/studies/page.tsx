@@ -69,24 +69,27 @@ export default async function StudiesExplorerPage({ searchParams }: { searchPara
   const list = (studies ?? []) as StudyRow[];
 
   return (
-    <main className="container stack" style={{ paddingTop: 48, paddingBottom: 64 }}>
-      <div>
-        <h1 style={{ marginBottom: 8 }}>Study explorer</h1>
-        <p className="muted" style={{ maxWidth: 720 }}>
+    <main className="mx-auto max-w-4xl px-6 py-12 space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Study explorer</h1>
+        <p className="text-muted-foreground max-w-2xl text-sm">
           Filter indexed publications. Metadata is extracted for research navigation — not to direct clinical decisions.
         </p>
       </div>
 
       {unknownPeptide && (
-        <p className="muted">No peptide matches slug “{peptideSlug}”. Clear the peptide filter to see all studies.</p>
+        <p className="text-sm text-muted-foreground">No peptide matches slug &ldquo;{peptideSlug}&rdquo;. Clear the peptide filter to see all studies.</p>
       )}
 
-      <form method="get" className="card stack" style={{ maxWidth: 640 }}>
-        <label className="stack" style={{ gap: 4 }}>
-          <span className="muted" style={{ fontSize: 13 }}>
-            Study type
-          </span>
-          <select name="study_type" className="input" defaultValue={studyType ?? ''}>
+      <form method="get" className="rounded-lg border border-border p-5 space-y-4 max-w-xl">
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground" htmlFor="study_type">Study type</label>
+          <select
+            id="study_type"
+            name="study_type"
+            defaultValue={studyType ?? ''}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          >
             <option value="">Any</option>
             <option value="human">Human</option>
             <option value="animal">Animal</option>
@@ -94,46 +97,57 @@ export default async function StudiesExplorerPage({ searchParams }: { searchPara
             <option value="review">Review</option>
             <option value="meta_analysis">Meta-analysis</option>
           </select>
-        </label>
-        <label className="stack" style={{ gap: 4 }}>
-          <span className="muted" style={{ fontSize: 13 }}>
-            Publication year
-          </span>
-          <input name="year" className="input" placeholder="e.g. 2020" defaultValue={sp.year ?? ''} />
-        </label>
-        <label className="stack" style={{ gap: 4 }}>
-          <span className="muted" style={{ fontSize: 13 }}>
-            Peptide slug
-          </span>
-          <input name="peptide" className="input" placeholder="e.g. bpc-157" defaultValue={sp.peptide ?? ''} />
-        </label>
-        <button className="button" type="submit" style={{ width: 'fit-content' }}>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground" htmlFor="year">Publication year</label>
+          <input
+            id="year"
+            name="year"
+            placeholder="e.g. 2020"
+            defaultValue={sp.year ?? ''}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground" htmlFor="peptide">Peptide slug</label>
+          <input
+            id="peptide"
+            name="peptide"
+            placeholder="e.g. bpc-157"
+            defaultValue={sp.peptide ?? ''}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+        <button
+          type="submit"
+          className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+        >
           Apply filters
         </button>
       </form>
 
-      <ul className="stack" style={{ listStyle: 'none', padding: 0 }}>
+      <ul className="space-y-4 list-none p-0">
         {list.map((s) => (
-          <li key={s.id} className="card stack">
-            <strong>{s.title}</strong>
-            <span className="muted" style={{ fontSize: 13 }}>
+          <li key={s.id} className="rounded-lg border border-border p-5 space-y-2">
+            <strong className="text-sm font-semibold">{s.title}</strong>
+            <span className="block text-xs text-muted-foreground">
               {s.study_type.replace(/_/g, ' ')}
               {s.publication_date ? ` · ${s.publication_date}` : ''}
               {s.sample_size != null ? ` · n=${s.sample_size}` : ''}
               {s.population ? ` · ${s.population}` : ''}
             </span>
-            {s.abstract && <p style={{ margin: 0 }}>{s.abstract}</p>}
-            <a href={s.source_url} target="_blank" rel="noopener noreferrer">
+            {s.abstract && <p className="text-sm m-0">{s.abstract}</p>}
+            <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium hover:underline">
               Source
             </a>
           </li>
         ))}
       </ul>
 
-      {list.length === 0 && !unknownPeptide && <p className="muted">No studies match these filters.</p>}
+      {list.length === 0 && !unknownPeptide && <p className="text-sm text-muted-foreground">No studies match these filters.</p>}
 
-      <p>
-        <Link href="/peptides">Browse peptides →</Link>
+      <p className="text-sm">
+        <Link href="/peptides" className="font-medium hover:underline">Browse peptides →</Link>
       </p>
     </main>
   );

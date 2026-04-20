@@ -15,9 +15,9 @@ export default async function DisclaimerPage() {
   }
 
   return (
-    <main className="container stack" style={{ paddingTop: 64 }}>
-      <h1>Platform scope</h1>
-      <div className="card stack">
+    <main className="mx-auto max-w-2xl px-6 py-16 space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight">Platform scope</h1>
+      <div className="rounded-lg border border-border p-6 space-y-4 text-sm leading-relaxed">
         <p>This platform is provided for educational and research reference purposes only.</p>
         <p>
           It does not provide medical advice, treatment recommendations, dosage instructions, protocol guidance, or
@@ -29,7 +29,7 @@ export default async function DisclaimerPage() {
         </p>
         <p>Regulatory status and legality vary by region.</p>
         {regionNote && (
-          <p className="muted" style={{ borderLeft: '3px solid #e5e7eb', paddingLeft: 12 }}>
+          <p className="text-muted-foreground border-l-2 border-border pl-3">
             {regionNote}
           </p>
         )}

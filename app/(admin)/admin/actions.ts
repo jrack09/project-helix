@@ -275,3 +275,170 @@ export async function archiveDrug(drugId: string) {
   revalidatePath(`/admin/drugs/${drugId}/edit`);
   revalidatePath('/admin/drugs');
 }
+
+// ── Guides ─────────────────────────────────────────────────
+
+const newGuideSchema = z.object({
+  title: z.string().min(1),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, hyphens'),
+  category: z.enum(['getting_started', 'administration', 'nutrition', 'side_effects', 'lifestyle', 'other']),
+});
+
+export async function createGuide(formData: FormData) {
+  const { supabase } = await requireEditor();
+  const parsed = newGuideSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.flatten().formErrors.join(', '));
+  const d = parsed.data;
+
+  const admin = createAdminSupabaseClient();
+  const { data, error } = await admin
+    .from('guides')
+    .insert({ title: d.title, slug: d.slug, category: d.category, publication_status: 'draft' })
+    .select('id')
+    .single();
+
+  if (error) throw new Error(error.message);
+  await writeAuditLog(supabase, { action: 'guide.created', entity_type: 'guide', entity_id: data.id });
+  redirect(`/admin/guides/${data.id}/edit`);
+}
+
+const saveGuideSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().min(1),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
+  subtitle: z.string().optional(),
+  body_markdown: z.string().optional(),
+  category: z.enum(['getting_started', 'administration', 'nutrition', 'side_effects', 'lifestyle', 'other']),
+  cover_emoji: z.string().optional(),
+  ordinal: z.coerce.number().optional(),
+});
+
+export async function saveGuide(formData: FormData) {
+  const { user, supabase } = await requireEditor();
+  const parsed = saveGuideSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.flatten().formErrors.join(', '));
+  const d = parsed.data;
+
+  if (d.body_markdown) assertComplianceSafe(d.body_markdown, 'body');
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from('guides').update({
+    title: d.title,
+    slug: d.slug,
+    subtitle: d.subtitle ?? null,
+    body_markdown: d.body_markdown ?? '',
+    category: d.category,
+    cover_emoji: d.cover_emoji ?? null,
+    ordinal: d.ordinal ?? 0,
+    updated_at: new Date().toISOString(),
+  }).eq('id', d.id);
+
+  if (error) throw new Error(error.message);
+  await writeAuditLog(supabase, { action: 'guide.updated', entity_type: 'guide', entity_id: d.id });
+  revalidatePath(`/admin/guides/${d.id}/edit`);
+  revalidatePath('/guides');
+}
+
+export async function publishGuide(guideId: string) {
+  const { user, supabase } = await requireEditor();
+  const admin = createAdminSupabaseClient();
+
+  const { data: guide } = await admin.from('guides').select('body_markdown, title, subtitle').eq('id', guideId).single();
+  if (guide?.body_markdown) assertComplianceSafe(guide.body_markdown, 'body');
+  if (guide?.subtitle) assertComplianceSafe(guide.subtitle, 'subtitle');
+
+  const { error } = await admin.from('guides').update({
+    publication_status: 'published',
+    updated_at: new Date().toISOString(),
+  }).eq('id', guideId);
+  if (error) throw new Error(error.message);
+
+  await admin.from('content_reviews').insert({
+    entity_type: 'guide',
+    entity_id: guideId,
+    reviewer_id: user.id,
+    action: 'approved',
+    notes: 'Published via admin CMS',
+  });
+
+  await writeAuditLog(supabase, { action: 'guide.published', entity_type: 'guide', entity_id: guideId });
+  revalidatePath('/admin/guides');
+  revalidatePath('/guides');
+  redirect('/admin/guides');
+}
+
+// ── AI content generation ──────────────────────────────────
+
+export async function generateDrugContentAction(drugId: string) {
+  const { user, supabase } = await requireEditor();
+  const admin = createAdminSupabaseClient();
+
+  const { data: drug } = await admin
+    .from('peptides')
+    .select('name, generic_name, drug_class, administration_route, typical_dosing_schedule, short_description')
+    .eq('id', drugId)
+    .single();
+  if (!drug) throw new Error('Drug not found');
+
+  const { generateDrugContent } = await import('@/lib/ai/drug-content-generator');
+  const content = await generateDrugContent(drug);
+
+  await Promise.all([
+    admin.from('drug_expectations').insert(
+      content.expectations.map((e) => ({
+        drug_id: drugId,
+        week_number: e.week_number,
+        milestone: e.milestone,
+        description: e.description,
+        is_common: e.is_common,
+      }))
+    ),
+    admin.from('drug_food_guidance').insert(
+      content.food_guidance.map((f, i) => ({
+        drug_id: drugId,
+        category: f.category,
+        item: f.item,
+        rationale: f.rationale,
+        evidence_level: f.evidence_level,
+        ordinal: i,
+      }))
+    ),
+    admin.from('drug_tips').insert(
+      content.tips.map((t, i) => ({
+        drug_id: drugId,
+        category: t.category,
+        title: t.title,
+        body_markdown: t.body_markdown,
+        ordinal: i,
+      }))
+    ),
+  ]);
+
+  await writeAuditLog(supabase, { action: 'drug.ai_content_generated', entity_type: 'drug', entity_id: drugId });
+  revalidatePath(`/admin/drugs/${drugId}/edit`);
+}
+
+export async function clearAndRegenerateDrugContent(drugId: string) {
+  const { user, supabase } = await requireEditor();
+  const admin = createAdminSupabaseClient();
+
+  // Clear existing companion content
+  await Promise.all([
+    admin.from('drug_expectations').delete().eq('drug_id', drugId),
+    admin.from('drug_food_guidance').delete().eq('drug_id', drugId),
+    admin.from('drug_tips').delete().eq('drug_id', drugId),
+  ]);
+
+  // Re-run generation (reuses same logic)
+  await generateDrugContentAction(drugId);
+  await writeAuditLog(supabase, { action: 'drug.ai_content_regenerated', entity_type: 'drug', entity_id: drugId });
+}
+
+export async function archiveGuide(guideId: string) {
+  const { user, supabase } = await requireEditor();
+  const admin = createAdminSupabaseClient();
+  await admin.from('guides').update({ publication_status: 'archived', updated_at: new Date().toISOString() }).eq('id', guideId);
+  await writeAuditLog(supabase, { action: 'guide.archived', entity_type: 'guide', entity_id: guideId });
+  revalidatePath(`/admin/guides/${guideId}/edit`);
+  revalidatePath('/admin/guides');
+}

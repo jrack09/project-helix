@@ -1,11 +1,13 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { Badge } from '@/components/ui/badge';
 import { DrugEditTabs } from './drug-edit-tabs';
+import { GenerateContentButton } from './generate-button';
 
 export default async function DrugEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const [drugRes, expectationsRes, foodRes, tipsRes] = await Promise.all([
     supabase.from('peptides').select('*').eq('id', id).maybeSingle(),
@@ -13,6 +15,11 @@ export default async function DrugEditPage({ params }: { params: Promise<{ id: s
     supabase.from('drug_food_guidance').select('*').eq('drug_id', id).order('ordinal'),
     supabase.from('drug_tips').select('*').eq('drug_id', id).order('ordinal'),
   ]);
+
+  const hasContent =
+    (expectationsRes.data?.length ?? 0) > 0 ||
+    (foodRes.data?.length ?? 0) > 0 ||
+    (tipsRes.data?.length ?? 0) > 0;
 
   if (!drugRes.data) notFound();
   const drug = drugRes.data;
@@ -26,6 +33,9 @@ export default async function DrugEditPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-6">
+      <Link href="/admin/drugs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+        ← Back to drugs
+      </Link>
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">{drug.name}</h1>
@@ -35,6 +45,8 @@ export default async function DrugEditPage({ params }: { params: Promise<{ id: s
           {drug.publication_status}
         </Badge>
       </div>
+
+      <GenerateContentButton drugId={id} hasContent={hasContent} />
 
       <DrugEditTabs
         drug={drug}

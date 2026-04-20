@@ -52,70 +52,106 @@ function OverviewTab({ drug }: { drug: Drug }) {
     },
     null,
   );
+  const [, startTransition] = useTransition();
+  const isPublished = drug.publication_status === 'published';
 
   return (
-    <form action={formAction} className="space-y-5">
-      <input type="hidden" name="id" value={drug.id} />
-      <FormError error={error} />
+    <div className="space-y-8">
+      <form action={formAction} className="space-y-5">
+        <input type="hidden" name="id" value={drug.id} />
+        <FormError error={error} />
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="name">Name *</Label>
-          <Input id="name" name="name" defaultValue={drug.name} required />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Name *</Label>
+            <Input id="name" name="name" defaultValue={drug.name} required />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="slug">Slug *</Label>
+            <Input id="slug" name="slug" defaultValue={drug.slug} required pattern="[a-z0-9-]+" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="generic_name">Generic name</Label>
+            <Input id="generic_name" name="generic_name" defaultValue={drug.generic_name ?? ''} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="drug_class">Drug class</Label>
+            <Input id="drug_class" name="drug_class" defaultValue={drug.drug_class ?? ''} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="brand_names">Brand names (comma-separated)</Label>
+            <Input
+              id="brand_names"
+              name="brand_names"
+              defaultValue={Array.isArray(drug.brand_names) ? (drug.brand_names as string[]).join(', ') : ''}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="administration_route">Route</Label>
+            <Input id="administration_route" name="administration_route" defaultValue={drug.administration_route ?? ''} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="evidence_score">Evidence score (0–100)</Label>
+            <Input id="evidence_score" name="evidence_score" type="number" min={0} max={100} defaultValue={drug.evidence_score ?? ''} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="status_label">Status label</Label>
+            <Input id="status_label" name="status_label" defaultValue={drug.status_label} />
+          </div>
         </div>
+
         <div className="space-y-1.5">
-          <Label htmlFor="slug">Slug *</Label>
-          <Input id="slug" name="slug" defaultValue={drug.slug} required pattern="[a-z0-9-]+" />
+          <Label htmlFor="short_description">Short description</Label>
+          <Textarea id="short_description" name="short_description" rows={2} defaultValue={drug.short_description ?? ''} />
         </div>
+
         <div className="space-y-1.5">
-          <Label htmlFor="generic_name">Generic name</Label>
-          <Input id="generic_name" name="generic_name" defaultValue={drug.generic_name ?? ''} />
+          <Label htmlFor="mechanism_summary">Mechanism summary</Label>
+          <Textarea id="mechanism_summary" name="mechanism_summary" rows={4} defaultValue={drug.mechanism_summary ?? ''} />
         </div>
+
         <div className="space-y-1.5">
-          <Label htmlFor="drug_class">Drug class</Label>
-          <Input id="drug_class" name="drug_class" defaultValue={drug.drug_class ?? ''} />
+          <Label htmlFor="typical_dosing_schedule">Typical dosing schedule (descriptive)</Label>
+          <Textarea id="typical_dosing_schedule" name="typical_dosing_schedule" rows={2} defaultValue={drug.typical_dosing_schedule ?? ''} />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="brand_names">Brand names (comma-separated)</Label>
-          <Input
-            id="brand_names"
-            name="brand_names"
-            defaultValue={Array.isArray(drug.brand_names) ? (drug.brand_names as string[]).join(', ') : ''}
-          />
+
+        <Button type="submit" disabled={pending}>
+          {pending ? 'Saving…' : 'Save overview'}
+        </Button>
+      </form>
+
+      <div className="border-t pt-6 space-y-4">
+        <div>
+          <p className="text-sm font-medium">Publication</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Publishing runs a compliance check. Any blocked phrase will prevent publishing and show an error.
+          </p>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="administration_route">Route</Label>
-          <Input id="administration_route" name="administration_route" defaultValue={drug.administration_route ?? ''} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="evidence_score">Evidence score (0–100)</Label>
-          <Input id="evidence_score" name="evidence_score" type="number" min={0} max={100} defaultValue={drug.evidence_score ?? ''} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="status_label">Status label</Label>
-          <Input id="status_label" name="status_label" defaultValue={drug.status_label} />
+        <div className="flex gap-3 items-center">
+          {!isPublished && (
+            <Button
+              type="button"
+              onClick={() => startTransition(() => publishDrug(drug.id))}
+              className="bg-success text-white hover:bg-success/90"
+            >
+              Publish drug
+            </Button>
+          )}
+          {drug.publication_status !== 'archived' && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => startTransition(() => archiveDrug(drug.id))}
+            >
+              Archive
+            </Button>
+          )}
+          {isPublished && (
+            <p className="text-sm text-muted-foreground">This drug is live and visible in the API.</p>
+          )}
         </div>
       </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="short_description">Short description</Label>
-        <Textarea id="short_description" name="short_description" rows={2} defaultValue={drug.short_description ?? ''} />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="mechanism_summary">Mechanism summary</Label>
-        <Textarea id="mechanism_summary" name="mechanism_summary" rows={4} defaultValue={drug.mechanism_summary ?? ''} />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="typical_dosing_schedule">Typical dosing schedule (descriptive)</Label>
-        <Textarea id="typical_dosing_schedule" name="typical_dosing_schedule" rows={2} defaultValue={drug.typical_dosing_schedule ?? ''} />
-      </div>
-
-      <Button type="submit" disabled={pending}>
-        {pending ? 'Saving…' : 'Save overview'}
-      </Button>
-    </form>
+    </div>
   );
 }
 
@@ -319,45 +355,6 @@ function TipsTab({ drugId, tips }: { drugId: string; tips: Tip[] }) {
   );
 }
 
-function PublishTab({ drug }: { drug: Drug }) {
-  const [, startTransition] = useTransition();
-  const isPublished = drug.publication_status === 'published';
-
-  return (
-    <div className="space-y-6">
-      <Alert variant="info">
-        <AlertDescription>
-          Publishing runs a compliance check across all text fields. Any blocked phrase will prevent publishing and show an error here.
-          The publish action writes a content review record and audit log entry.
-        </AlertDescription>
-      </Alert>
-
-      <div className="flex gap-3">
-        {!isPublished && (
-          <Button
-            onClick={() => startTransition(() => publishDrug(drug.id))}
-            className="bg-success text-white hover:bg-success/90"
-          >
-            Publish drug
-          </Button>
-        )}
-        {drug.publication_status !== 'archived' && (
-          <Button
-            variant="outline"
-            onClick={() => startTransition(() => archiveDrug(drug.id))}
-          >
-            Archive
-          </Button>
-        )}
-        {isPublished && (
-          <p className="text-sm text-muted-foreground self-center">
-            This drug is live and visible in the API.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export function DrugEditTabs({ drug, expectations, foodGuidance, tips }: Props) {
   return (
@@ -373,14 +370,12 @@ export function DrugEditTabs({ drug, expectations, foodGuidance, tips }: Props) 
         <TabsTrigger value="tips">
           Tips {tips.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{tips.length}</Badge>}
         </TabsTrigger>
-        <TabsTrigger value="publish">Publish</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview"><OverviewTab drug={drug} /></TabsContent>
       <TabsContent value="expectations"><ExpectationsTab drugId={drug.id} expectations={expectations} /></TabsContent>
       <TabsContent value="food"><FoodGuidanceTab drugId={drug.id} foodGuidance={foodGuidance} /></TabsContent>
       <TabsContent value="tips"><TipsTab drugId={drug.id} tips={tips} /></TabsContent>
-      <TabsContent value="publish"><PublishTab drug={drug} /></TabsContent>
     </Tabs>
   );
 }

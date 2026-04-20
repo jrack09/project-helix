@@ -29,13 +29,15 @@
   --color-warning: oklch(0.769 0.188 70.08);
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
 
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; text-decoration: none; }
 }
-
-a { color: inherit; text-decoration: none; }

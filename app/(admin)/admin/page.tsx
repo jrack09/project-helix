@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export default async function AdminDashboardPage() {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const [drugsRes, reviewsRes] = await Promise.all([
     supabase

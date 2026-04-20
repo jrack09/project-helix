@@ -7,8 +7,9 @@ export type FoodGuidanceCategory = 'prefer' | 'limit' | 'avoid' | 'hydrate';
 export type EvidenceLevel = 'anecdotal' | 'editorial' | 'study_backed';
 export type TipCategory = 'administration' | 'timing' | 'mindset' | 'exercise' | 'sleep' | 'hydration' | 'nutrition' | 'other';
 export type ContentReviewAction = 'approved' | 'rejected' | 'requested_changes';
-export type ContentReviewEntityType = 'drug' | 'expectation' | 'food_guidance' | 'tip' | 'side_effect_tip' | 'ai_summary';
+export type ContentReviewEntityType = 'drug' | 'expectation' | 'food_guidance' | 'tip' | 'side_effect_tip' | 'ai_summary' | 'guide';
 export type AdministrationRoute = 'subcutaneous_injection' | 'intramuscular_injection' | 'oral' | 'intranasal' | 'topical' | 'intravenous';
+export type GuideCategory = 'getting_started' | 'administration' | 'nutrition' | 'side_effects' | 'lifestyle' | 'other';
 
 /** Empty FK graph — extend when you add PostgREST relationships */
 type EmptyRel = [];
@@ -180,6 +181,36 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['drug_tips']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      guides: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          subtitle: string | null;
+          body_markdown: string;
+          category: GuideCategory;
+          cover_emoji: string | null;
+          ordinal: number;
+          publication_status: PublicationStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          subtitle?: string | null;
+          body_markdown?: string;
+          category?: GuideCategory;
+          cover_emoji?: string | null;
+          ordinal?: number;
+          publication_status?: PublicationStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['guides']['Insert']>;
         Relationships: EmptyRel;
       };
       content_reviews: {

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export function SiteHeader({ email }: { email?: string | null }) {
+export function SiteHeader({ email, role }: { email?: string | null; role?: string | null }) {
+  const isStaff = role === 'editor' || role === 'admin';
   return (
     <header className="border-b border-border">
       <nav className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
@@ -14,6 +15,11 @@ export function SiteHeader({ email }: { email?: string | null }) {
           </Link>
           {email ? (
             <>
+              {isStaff && (
+                <Link href="/admin" className="text-sm font-medium text-foreground hover:underline transition-colors">
+                  Admin
+                </Link>
+              )}
               <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Dashboard
               </Link>

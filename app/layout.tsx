@@ -15,10 +15,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     data: { user },
   } = await supabase.auth.getUser();
 
+  let role: string | null = null;
+  if (user) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    role = profile?.role ?? null;
+  }
+
   return (
     <html lang="en">
       <body className="font-sans antialiased min-h-screen">
-        <SiteHeader email={user?.email ?? null} />
+        <SiteHeader email={user?.email ?? null} role={role} />
         {children}
         <SiteFooter />
       </body>

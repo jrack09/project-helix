@@ -13,6 +13,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/drugs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Drugs
           </Link>
+          <Link href="/admin/guides" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Guides
+          </Link>
           <Link href="/" className="ml-auto text-sm text-muted-foreground hover:text-foreground transition-colors">
             ← Public site
           </Link>
