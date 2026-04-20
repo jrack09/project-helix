@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getRegionNotice } from '@/lib/compliance/region-copy';
 import { QuickFactsPanel, ProtocolBlock } from '@/components/ui/content-blocks';
 import { TocScrollSpy } from '@/components/ui/toc-scrollspy';
+import { MobileSectionRail } from '@/components/ui/mobile-section-rail';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -455,16 +456,15 @@ export default async function DrugDetailPage({ params }: Props) {
           </aside>
         </div>
 
-        <div className="fixed inset-x-0 bottom-3 z-30 px-4 lg:hidden">
-          <div className="mx-auto flex max-w-md items-center justify-between gap-2 rounded-full border border-border bg-background/95 p-2 shadow-[var(--shadow-card)] backdrop-blur">
-            <a href="#overview" className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">Top</a>
-            <a href="#guidance" className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">Guidance</a>
-            <a href="#evidence" className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">Evidence</a>
-            <Link href="/auth/signup" className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
-              App signup
-            </Link>
-          </div>
-        </div>
+        <MobileSectionRail
+          items={[
+            { id: 'overview', label: 'Top' },
+            { id: 'guidance', label: 'Guidance' },
+            { id: 'evidence', label: 'Evidence' },
+          ]}
+          ctaHref="/auth/signup"
+          ctaLabel="App signup"
+        />
       </div>
     </main>
   );
