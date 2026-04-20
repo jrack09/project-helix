@@ -21,7 +21,8 @@ const BLOCKED_PATTERNS: { regex: RegExp; label: string }[] = [
   { regex: /\byou('re|\s+are)\s+diagnosed\b/i, label: 'diagnostic language' },
 
   // Prescription interference
-  { regex: /\bstop\s+(taking|your)\s+(medication|prescription|dose|drug)/i, label: 'prescription interference' },
+  { regex: /\bstop\s+taking\b/i, label: 'prescription interference' },
+  { regex: /\bstop\s+your\s+(medication|prescription|dose|drug)/i, label: 'prescription interference' },
   { regex: /\bskip\s+(a\s+)?dose\b/i, label: 'prescription interference' },
   { regex: /\binstead\s+of\s+your\s+prescribed/i, label: 'prescription interference' },
   { regex: /\bdon't\s+need\s+(your\s+)?(prescription|medication|doctor)/i, label: 'prescription interference' },
