@@ -60,6 +60,10 @@ export type Database = {
           administration_route: string | null;
           typical_dosing_schedule: string | null;
           prescription_required: boolean;
+          contraindications: string | null;
+          drug_interactions: Json;
+          storage_handling: string | null;
+          pharmacokinetics: Json;
           created_at: string;
           updated_at: string;
         };
@@ -81,6 +85,10 @@ export type Database = {
           administration_route?: string | null;
           typical_dosing_schedule?: string | null;
           prescription_required?: boolean;
+          contraindications?: string | null;
+          drug_interactions?: Json;
+          storage_handling?: string | null;
+          pharmacokinetics?: Json;
           created_at?: string;
           updated_at?: string;
         };
