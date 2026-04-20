@@ -758,9 +758,9 @@ export default async function DrugDetailPage({ params }: Props) {
                       Important note
                     </p>
                     <p className="text-xs text-amber-700 dark:text-amber-400">
-                      Benefits and side effects listed here reflect observed outcomes from published trial data — they
-                      are not a guarantee of individual results. Response varies significantly between patients. Always
-                      discuss expected outcomes and risks with your prescriber before starting or adjusting treatment.
+                      {hasReconstitution
+                        ? `This content is intended for therapeutic educational purposes only and does not constitute medical advice, diagnosis, or treatment. ${drug.name} is not TGA/FDA-approved and is available only for research purposes. All information presented is based on published clinical trial data and is not intended to encourage off-label use.`
+                        : 'This content is intended for therapeutic educational purposes only and does not constitute medical advice, diagnosis, or treatment. All information presented is based on published clinical trial data. Always follow your prescriber\'s instructions.'}
                     </p>
                   </div>
                 </div>
