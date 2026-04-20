@@ -100,6 +100,7 @@ export type Database = {
           id: string;
           drug_id: string;
           step_type: 'supply' | 'step' | 'warning' | 'disposal';
+          formulation: 'pen' | 'lyophilized';
           ordinal: number;
           title: string;
           body: string | null;
@@ -110,6 +111,7 @@ export type Database = {
           id?: string;
           drug_id: string;
           step_type: 'supply' | 'step' | 'warning' | 'disposal';
+          formulation?: 'pen' | 'lyophilized';
           ordinal?: number;
           title: string;
           body?: string | null;
@@ -117,6 +119,68 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['drug_injection_guide']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_reconstitution_guide: {
+        Row: {
+          id: string;
+          drug_id: string;
+          vial_size_mg: number;
+          bac_water_ml: number;
+          concentration_mg_per_ml: number;
+          technique_notes: string | null;
+          measurement_note: string | null;
+          storage_lyophilized: string | null;
+          storage_reconstituted: string | null;
+          use_within: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          vial_size_mg: number;
+          bac_water_ml: number;
+          concentration_mg_per_ml: number;
+          technique_notes?: string | null;
+          measurement_note?: string | null;
+          storage_lyophilized?: string | null;
+          storage_reconstituted?: string | null;
+          use_within?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_reconstitution_guide']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_dose_reference: {
+        Row: {
+          id: string;
+          drug_id: string;
+          protocol_label: string;
+          phase_label: string | null;
+          dose_mg: number;
+          units_u100: number;
+          volume_ml: number;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          protocol_label: string;
+          phase_label?: string | null;
+          dose_mg: number;
+          units_u100: number;
+          volume_ml: number;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_dose_reference']['Insert']>;
         Relationships: EmptyRel;
       };
       drug_expectations: {

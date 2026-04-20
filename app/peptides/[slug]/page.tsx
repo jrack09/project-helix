@@ -26,7 +26,7 @@ export default async function DrugDetailPage({ params }: Props) {
 
   if (!drug) notFound();
 
-  const [expectationsRes, foodRes, tipsRes, sideEffectsRes, studyLinksRes, dosagesRes, outcomesRes, injectionGuideRes] = await Promise.all([
+  const [expectationsRes, foodRes, tipsRes, sideEffectsRes, studyLinksRes, dosagesRes, outcomesRes, injectionGuideRes, reconstitutionGuideRes, doseReferenceRes] = await Promise.all([
     supabase.from('drug_expectations').select('id, week_number, milestone, description, is_common').eq('drug_id', drug.id).order('week_number').limit(6),
     supabase.from('drug_food_guidance').select('id, category, item, rationale').eq('drug_id', drug.id).order('ordinal').limit(12),
     supabase.from('drug_tips').select('id, category, title, body_markdown').eq('drug_id', drug.id).order('ordinal').limit(6),
@@ -34,7 +34,9 @@ export default async function DrugDetailPage({ params }: Props) {
     supabase.from('study_peptides').select('study_id').eq('peptide_id', drug.id),
     supabase.from('study_dosages').select('id, study_id, dosage_value, dosage_unit, frequency, duration, context_note').eq('peptide_id', drug.id),
     supabase.from('study_outcomes').select('id, study_id, outcome_type, description, significance').eq('peptide_id', drug.id),
-    supabase.from('drug_injection_guide').select('id, step_type, ordinal, title, body').eq('drug_id', drug.id).order('ordinal'),
+    supabase.from('drug_injection_guide').select('id, step_type, formulation, ordinal, title, body').eq('drug_id', drug.id).order('ordinal'),
+    supabase.from('drug_reconstitution_guide').select('id, vial_size_mg, bac_water_ml, concentration_mg_per_ml, technique_notes, measurement_note, storage_lyophilized, storage_reconstituted, use_within, ordinal').eq('drug_id', drug.id).order('ordinal'),
+    supabase.from('drug_dose_reference').select('id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, ordinal').eq('drug_id', drug.id).order('ordinal'),
   ]);
 
   const studyIds = (studyLinksRes.data ?? []).map((r) => r.study_id);
@@ -67,6 +69,14 @@ export default async function DrugDetailPage({ params }: Props) {
     (acc, t) => ({ ...acc, [t]: injectionGuide.filter((g) => g.step_type === t) }),
     {} as Record<string, typeof injectionGuide>,
   );
+
+  const reconstitutionGuide = reconstitutionGuideRes.data ?? [];
+  const doseReference = doseReferenceRes.data ?? [];
+  const doseByProtocol = doseReference.reduce<Record<string, typeof doseReference>>((acc, r) => {
+    (acc[r.protocol_label] ||= []).push(r);
+    return acc;
+  }, {});
+  const doseProtocolLabels = [...new Set(doseReference.map((r) => r.protocol_label))];
 
   const dosagesByStudy = dosages.reduce<Record<string, typeof dosages>>((acc, d) => {
     (acc[d.study_id] ||= []).push(d);
@@ -110,6 +120,7 @@ export default async function DrugDetailPage({ params }: Props) {
     { id: 'overview', label: 'Overview' },
     { id: 'expectations', label: 'What to expect' },
     { id: 'guidance', label: 'Food and practical guidance' },
+    ...(reconstitutionGuide.length > 0 || doseReference.length > 0 ? [{ id: 'reconstitution', label: 'Reconstitution & dosing' }] : []),
     ...(injectionGuide.length > 0 ? [{ id: 'injection', label: 'Injection guide' }] : []),
     { id: 'safety', label: 'Safety and interactions' },
     { id: 'evidence', label: 'Research evidence' },
@@ -252,6 +263,99 @@ export default async function DrugDetailPage({ params }: Props) {
                       </div>
                     </div>
                   ) : null}
+                </div>
+              </ProtocolBlock>
+            )}
+
+            {(reconstitutionGuide.length > 0 || doseReference.length > 0) && (
+              <ProtocolBlock id="reconstitution" title="Reconstitution & dosing" subtitle="Compounding arithmetic and dose reference tables. Your prescriber and pharmacy determine your actual dose and vial size.">
+                <div className="space-y-6">
+                  {reconstitutionGuide.length > 0 && (
+                    <div className="space-y-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reconstitution guide</p>
+                      {reconstitutionGuide.map((r) => (
+                        <div key={r.id} className="rounded-[--radius] border border-border bg-background p-4 space-y-3">
+                          <div className="flex flex-wrap gap-6">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Vial size</p>
+                              <p className="text-sm font-semibold">{r.vial_size_mg} mg</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">BAC water to add</p>
+                              <p className="text-sm font-semibold">{r.bac_water_ml} mL</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Resulting concentration</p>
+                              <p className="text-sm font-semibold">{r.concentration_mg_per_ml} mg/mL</p>
+                            </div>
+                          </div>
+                          {r.measurement_note && (
+                            <p className="rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">{r.measurement_note}</p>
+                          )}
+                          {r.technique_notes && (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Technique</p>
+                              <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{r.technique_notes}</p>
+                            </div>
+                          )}
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {r.storage_lyophilized && (
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Before reconstitution</p>
+                                <p className="mt-1 text-sm leading-relaxed">{r.storage_lyophilized}</p>
+                              </div>
+                            )}
+                            {r.storage_reconstituted && (
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">After reconstitution</p>
+                                <p className="mt-1 text-sm leading-relaxed">{r.storage_reconstituted}</p>
+                              </div>
+                            )}
+                          </div>
+                          {r.use_within && (
+                            <p className="text-xs text-muted-foreground">{r.use_within}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {doseProtocolLabels.length > 0 && (
+                    <div className="space-y-5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dose reference tables</p>
+                      {doseProtocolLabels.map((label) => (
+                        <div key={label} className="space-y-2">
+                          <p className="text-sm font-semibold">{label}</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-border">
+                                  <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phase / Dose</th>
+                                  <th className="pb-1.5 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">U-100 Units</th>
+                                  <th className="pb-1.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Volume (mL)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {doseByProtocol[label].map((row) => (
+                                  <tr key={row.id} className="border-b border-border/50">
+                                    <td className="py-1.5 pr-4">{row.phase_label ?? `${row.dose_mg} mg`}</td>
+                                    <td className="py-1.5 pr-4 text-right tabular-nums">{row.units_u100}</td>
+                                    <td className="py-1.5 text-right tabular-nums">{Number(row.volume_ml).toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="rounded-[--radius] border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/30">
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      Concentration calculations are standard compounding arithmetic. Protocol phases are drawn from published Phase 2 trial data. Your prescriber and dispensing pharmacy determine the actual dose, vial size, and escalation schedule for your treatment.
+                    </p>
+                  </div>
                 </div>
               </ProtocolBlock>
             )}
