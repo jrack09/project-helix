@@ -95,6 +95,30 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['peptides']['Insert']>;
         Relationships: EmptyRel;
       };
+      drug_injection_guide: {
+        Row: {
+          id: string;
+          drug_id: string;
+          step_type: 'supply' | 'step' | 'warning' | 'disposal';
+          ordinal: number;
+          title: string;
+          body: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          step_type: 'supply' | 'step' | 'warning' | 'disposal';
+          ordinal?: number;
+          title: string;
+          body?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_injection_guide']['Insert']>;
+        Relationships: EmptyRel;
+      };
       drug_expectations: {
         Row: {
           id: string;

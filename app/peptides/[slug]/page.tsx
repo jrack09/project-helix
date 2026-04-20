@@ -24,7 +24,7 @@ export default async function DrugDetailPage({ params }: Props) {
 
   if (!drug) notFound();
 
-  const [expectationsRes, foodRes, tipsRes, sideEffectsRes, studyLinksRes, dosagesRes, outcomesRes] = await Promise.all([
+  const [expectationsRes, foodRes, tipsRes, sideEffectsRes, studyLinksRes, dosagesRes, outcomesRes, injectionGuideRes] = await Promise.all([
     supabase.from('drug_expectations').select('id, week_number, milestone, description, is_common').eq('drug_id', drug.id).order('week_number').limit(6),
     supabase.from('drug_food_guidance').select('id, category, item, rationale').eq('drug_id', drug.id).order('ordinal').limit(12),
     supabase.from('drug_tips').select('id, category, title, body_markdown').eq('drug_id', drug.id).order('ordinal').limit(6),
@@ -32,6 +32,7 @@ export default async function DrugDetailPage({ params }: Props) {
     supabase.from('study_peptides').select('study_id').eq('peptide_id', drug.id),
     supabase.from('study_dosages').select('id, study_id, dosage_value, dosage_unit, frequency, duration, context_note').eq('peptide_id', drug.id),
     supabase.from('study_outcomes').select('id, study_id, outcome_type, description, significance').eq('peptide_id', drug.id),
+    supabase.from('drug_injection_guide').select('id, step_type, ordinal, title, body').eq('drug_id', drug.id).order('ordinal'),
   ]);
 
   const studyIds = (studyLinksRes.data ?? []).map((r) => r.study_id);
@@ -58,6 +59,12 @@ export default async function DrugDetailPage({ params }: Props) {
   const studies = studiesRes.data ?? [];
   const dosages = dosagesRes.data ?? [];
   const outcomes = outcomesRes.data ?? [];
+
+  const injectionGuide = injectionGuideRes.data ?? [];
+  const injectionByType = (['supply', 'step', 'warning', 'disposal'] as const).reduce(
+    (acc, t) => ({ ...acc, [t]: injectionGuide.filter((g) => g.step_type === t) }),
+    {} as Record<string, typeof injectionGuide>,
+  );
 
   const dosagesByStudy = dosages.reduce<Record<string, typeof dosages>>((acc, d) => {
     (acc[d.study_id] ||= []).push(d);
@@ -101,6 +108,7 @@ export default async function DrugDetailPage({ params }: Props) {
     { id: 'overview', label: 'Overview' },
     { id: 'expectations', label: 'What to expect' },
     { id: 'guidance', label: 'Food and practical guidance' },
+    ...(injectionGuide.length > 0 ? [{ id: 'injection', label: 'Injection guide' }] : []),
     { id: 'safety', label: 'Safety and interactions' },
     { id: 'evidence', label: 'Research evidence' },
   ];
@@ -239,6 +247,77 @@ export default async function DrugDetailPage({ params }: Props) {
                       </div>
                     </div>
                   ) : null}
+                </div>
+              </ProtocolBlock>
+            )}
+
+            {injectionGuide.length > 0 && (
+              <ProtocolBlock id="injection" title="Injection guide" subtitle="Supplies, step-by-step technique, safety notes, and AU sharps disposal.">
+                <div className="space-y-6">
+                  {injectionByType.supply.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What you need</p>
+                      <ul className="mt-2 space-y-2">
+                        {injectionByType.supply.map((g) => (
+                          <li key={g.id} className="flex gap-2 text-sm">
+                            <span className="mt-0.5 shrink-0 text-muted-foreground">◦</span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <span className="text-muted-foreground"> — {g.body}</span>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {injectionByType.step.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step-by-step</p>
+                      <ol className="mt-2 space-y-2">
+                        {injectionByType.step.map((g, i) => (
+                          <li key={g.id} className="flex gap-3 text-sm">
+                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">{i + 1}</span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <p className="mt-0.5 text-muted-foreground">{g.body}</p>}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  {injectionByType.warning.length > 0 && (
+                    <div className="rounded-[--radius] border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Important notes</p>
+                      <ul className="mt-2 space-y-1.5">
+                        {injectionByType.warning.map((g) => (
+                          <li key={g.id} className="flex gap-2 text-sm">
+                            <span className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400">!</span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <p className="mt-0.5 text-muted-foreground">{g.body}</p>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {injectionByType.disposal.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sharps disposal</p>
+                      <ul className="mt-2 space-y-1.5">
+                        {injectionByType.disposal.map((g) => (
+                          <li key={g.id} className="flex gap-2 text-sm">
+                            <span className="mt-0.5 shrink-0 text-muted-foreground">◦</span>
+                            <span>
+                              <span className="font-medium">{g.title}</span>
+                              {g.body && <span className="text-muted-foreground"> — {g.body}</span>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </ProtocolBlock>
             )}
