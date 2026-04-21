@@ -6,6 +6,7 @@ add column if not exists image_url text;
 update public.peptides
 set image_url = case slug
   when 'semaglutide-wegovy' then '/drugs/semaglutide-wegovy.png'
+  when 'semaglutide-ozempic' then '/drugs/semaglutide-ozempic.png'
   when 'tirzepatide-mounjaro' then '/drugs/tirzepatide-mounjaro.png'
   when 'tirzepatide-zepbound' then '/drugs/tirzepatide-zepbound.png'
   when 'cagrilintide' then '/drugs/cagrilintide.png'
@@ -18,6 +19,7 @@ set image_url = case slug
 end
 where slug in (
   'semaglutide-wegovy',
+  'semaglutide-ozempic',
   'tirzepatide-mounjaro',
   'tirzepatide-zepbound',
   'cagrilintide',
