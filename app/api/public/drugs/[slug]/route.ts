@@ -33,7 +33,7 @@ export async function GET(
     return NextResponse.json({ error: 'Drug not found.' }, { status: 404, headers: cors });
   }
 
-  const [expectations, foodGuidance, tips, sideEffects] = await Promise.all([
+  const [expectations, foodGuidance, tips, sideEffects, reconstitutionGuide, doseReference] = await Promise.all([
     admin
       .from('drug_expectations')
       .select('id, week_number, milestone, description, is_common')
@@ -54,6 +54,19 @@ export async function GET(
       .from('side_effects')
       .select('id, effect, severity, frequency, drug_side_effect_tips(id, strategy, when_to_seek_help, ordinal)')
       .eq('peptide_id', drug.id),
+    admin
+      .from('drug_reconstitution_guide')
+      .select(
+        'id, vial_size_mg, bac_water_ml, concentration_mg_per_ml, technique_notes, measurement_note, storage_lyophilized, storage_reconstituted, use_within, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_dose_reference')
+      .select('id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, ordinal')
+      .eq('drug_id', drug.id)
+      .order('protocol_label', { ascending: true })
+      .order('ordinal', { ascending: true }),
   ]);
 
   return NextResponse.json(
@@ -78,6 +91,8 @@ export async function GET(
         food_guidance: foodGuidance.data ?? [],
         tips: tips.data ?? [],
         side_effects: sideEffects.data ?? [],
+        reconstitution_guide: reconstitutionGuide.data ?? [],
+        dose_reference: doseReference.data ?? [],
       },
       drugDisclaimer(slug),
       drug.updated_at,
