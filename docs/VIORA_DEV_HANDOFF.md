@@ -14,7 +14,7 @@ Viora will consume PIP's public API and render drug companion content inside the
 
 Provide these values to the Viora backend developer:
 
-- `PIP_BASE_URL`: `https://<your-pip-domain>/api/public`
+- `PIP_BASE_URL`: `https://www.pulseconnect.com.au/api/public`
 - `PIP_API_KEY`: `pip_<your_secret_token>`
 
 ### Security Requirements

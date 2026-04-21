@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import SubscribeButton from '@/components/billing/subscribe-button';
-import CreateApiKeySection from '@/components/api-keys/create-api-key-section';
+import ApiKeysSection from '@/components/api-keys/api-keys-section';
 import { Button } from '@/components/ui/button';
 
 export default async function DashboardPage() {
@@ -49,8 +48,7 @@ export default async function DashboardPage() {
         <p className="text-sm">Logged in as <strong>{user.email}</strong></p>
         <p className="text-sm text-muted-foreground">Subscription status: {subscription?.status ?? 'none'}</p>
         <p className="text-sm text-muted-foreground">Plan: {subscription?.plan_code ?? 'free'}</p>
-        <CreateApiKeySection />
-        <SubscribeButton />
+        <ApiKeysSection />
       </div>
     </main>
   );
