@@ -2,6 +2,12 @@ import Link from 'next/link';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  genericIngredientLabel,
+  primaryDrugDisplayName,
+  secondaryBrandNames,
+  sortDrugsByDisplayName,
+} from '@/lib/drugs/display-name';
 
 export const metadata = {
   title: 'Drug companions — PIP',
@@ -22,8 +28,8 @@ export default async function DrugsIndexPage() {
     .eq('publication_status', 'published')
     .order('name');
 
-  const prescribed = (drugs ?? []).filter((d) => d.prescription_required);
-  const investigational = (drugs ?? []).filter((d) => !d.prescription_required);
+  const prescribed = sortDrugsByDisplayName((drugs ?? []).filter((d) => d.prescription_required));
+  const investigational = sortDrugsByDisplayName((drugs ?? []).filter((d) => !d.prescription_required));
 
   return (
     <main className="section-shell py-10 space-y-10">
@@ -44,20 +50,31 @@ export default async function DrugsIndexPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {prescribed.map((drug) => {
-              const brands = Array.isArray(drug.brand_names) ? (drug.brand_names as string[]) : [];
+              const title = primaryDrugDisplayName(drug);
+              const inn = genericIngredientLabel(drug);
+              const extraBrands = secondaryBrandNames(drug.brand_names);
               return (
                 <Link key={drug.id} href={`/peptides/${drug.slug}`}>
                   <Card className="h-full hover:border-primary/40">
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base">{drug.name}</CardTitle>
+                        <CardTitle className="text-base">{title}</CardTitle>
                         {drug.drug_class && (
                           <Badge variant={CLASS_BADGE[drug.drug_class] ?? 'secondary'} className="shrink-0 text-xs">
                             {drug.drug_class.replace('receptor agonist', 'RA')}
                           </Badge>
                         )}
                       </div>
-                      {brands.length > 0 && <CardDescription>{brands.join(', ')}</CardDescription>}
+                      {(inn || extraBrands.length > 0) && (
+                        <CardDescription className="space-y-0.5">
+                          {inn ? <span>{inn}</span> : null}
+                          {extraBrands.length > 0 ? (
+                            <span className="block text-xs">
+                              Also marketed as: {extraBrands.join(', ')}
+                            </span>
+                          ) : null}
+                        </CardDescription>
+                      )}
                     </CardHeader>
                     <CardContent>
                       {drug.short_description && <p className="text-sm text-muted-foreground line-clamp-2">{drug.short_description}</p>}
@@ -83,7 +100,7 @@ export default async function DrugsIndexPage() {
               <Link key={drug.id} href={`/peptides/${drug.slug}`}>
                 <Card className="h-full hover:border-primary/40">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">{drug.name}</CardTitle>
+                    <CardTitle className="text-base">{primaryDrugDisplayName(drug)}</CardTitle>
                     <CardDescription>{drug.drug_class}</CardDescription>
                   </CardHeader>
                   <CardContent>

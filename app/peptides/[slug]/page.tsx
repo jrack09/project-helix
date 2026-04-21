@@ -8,6 +8,11 @@ import { getRegionNotice } from '@/lib/compliance/region-copy';
 import { QuickFactsPanel, ProtocolBlock } from '@/components/ui/content-blocks';
 import { TocScrollSpy } from '@/components/ui/toc-scrollspy';
 import { MobileSectionRail } from '@/components/ui/mobile-section-rail';
+import {
+  genericIngredientLabel,
+  primaryDrugDisplayName,
+  secondaryBrandNames,
+} from '@/lib/drugs/display-name';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -149,7 +154,9 @@ export default async function DrugDetailPage({ params }: Props) {
     regionNote = getRegionNotice(profile?.region_code);
   }
 
-  const brands = Array.isArray(drug.brand_names) ? (drug.brand_names as string[]) : [];
+  const displayName = primaryDrugDisplayName(drug);
+  const innLabel = genericIngredientLabel(drug);
+  const extraBrandLabels = secondaryBrandNames(drug.brand_names);
   const expectations = expectationsRes.data ?? [];
   const food = foodRes.data ?? [];
   const tips = tipsRes.data ?? [];
@@ -297,12 +304,20 @@ export default async function DrugDetailPage({ params }: Props) {
           <p className="eyebrow">Drug companion protocol</p>
           <div className="space-y-3">
             <div className="flex flex-wrap items-start gap-2.5">
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{drug.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{displayName}</h1>
               {drug.prescription_required && <Badge>Prescription only</Badge>}
               {drug.drug_class && <Badge variant="secondary">{drug.drug_class}</Badge>}
             </div>
-            {brands.length > 0 && (
-              <p className="text-sm text-muted-foreground">Also known as: {brands.join(', ')}</p>
+            {innLabel && (
+              <p className="text-sm text-muted-foreground">
+                Active ingredient:{' '}
+                <span className="font-medium text-foreground">{innLabel}</span>
+              </p>
+            )}
+            {extraBrandLabels.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Other US trade names: {extraBrandLabels.join(', ')}
+              </p>
             )}
             {drug.short_description && (
               <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">{drug.short_description}</p>
@@ -759,7 +774,7 @@ export default async function DrugDetailPage({ params }: Props) {
                     </p>
                     <p className="text-xs text-amber-700 dark:text-amber-400">
                       {hasReconstitution
-                        ? `This content is intended for therapeutic educational purposes only and does not constitute medical advice, diagnosis, or treatment. ${drug.name} is not TGA/FDA-approved and is available only for research purposes. All information presented is based on published clinical trial data and is not intended to encourage off-label use.`
+                        ? `This content is intended for therapeutic educational purposes only and does not constitute medical advice, diagnosis, or treatment. ${displayName} is not TGA/FDA-approved and is available only for research purposes. All information presented is based on published clinical trial data and is not intended to encourage off-label use.`
                         : 'This content is intended for therapeutic educational purposes only and does not constitute medical advice, diagnosis, or treatment. All information presented is based on published clinical trial data. Always follow your prescriber\'s instructions.'}
                     </p>
                   </div>
