@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,7 @@ export default async function DrugDetailPage({ params }: Props) {
   const { data: drug } = await supabase
     .from('peptides')
     .select(
-      'id, slug, name, generic_name, brand_names, drug_class, administration_route, typical_dosing_schedule, short_description, mechanism_summary, evidence_score, status_label, prescription_required, contraindications, drug_interactions, storage_handling, pharmacokinetics',
+      'id, slug, name, generic_name, brand_names, drug_class, administration_route, typical_dosing_schedule, short_description, mechanism_summary, evidence_score, status_label, prescription_required, image_url, contraindications, drug_interactions, storage_handling, pharmacokinetics',
     )
     .eq('slug', slug)
     .eq('is_visible', true)
@@ -323,6 +324,12 @@ export default async function DrugDetailPage({ params }: Props) {
               <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">{drug.short_description}</p>
             )}
           </div>
+
+          {drug.image_url && (
+            <div className="relative h-52 w-full max-w-md overflow-hidden rounded-[--radius-xl] border border-border/60 bg-muted/30 sm:h-64">
+              <Image src={drug.image_url} alt={`${displayName} vial`} fill className="object-contain p-4" />
+            </div>
+          )}
 
           <QuickFactsPanel items={quickFacts} />
 

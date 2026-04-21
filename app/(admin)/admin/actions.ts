@@ -39,6 +39,7 @@ const drugOverviewSchema = z.object({
   evidence_score: z.coerce.number().min(0).max(100).optional(),
   status_label: z.string().optional(),
   prescription_required: z.coerce.boolean().optional(),
+  image_url: z.string().optional(),
 });
 
 export async function saveDrugOverview(formData: FormData) {
@@ -76,6 +77,7 @@ export async function saveDrugOverview(formData: FormData) {
       evidence_score: d.evidence_score ?? null,
       status_label: d.status_label ?? 'investigational',
       prescription_required: d.prescription_required ?? true,
+      image_url: d.image_url ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', d.id);

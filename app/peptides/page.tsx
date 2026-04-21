@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -23,7 +24,7 @@ export default async function DrugsIndexPage() {
   const supabase = await createServerSupabaseClient();
   const { data: drugs } = await supabase
     .from('peptides')
-    .select('id, slug, name, generic_name, brand_names, drug_class, short_description, prescription_required, publication_status')
+    .select('id, slug, name, generic_name, brand_names, drug_class, short_description, image_url, prescription_required, publication_status')
     .eq('is_visible', true)
     .eq('publication_status', 'published')
     .order('name');
@@ -56,6 +57,11 @@ export default async function DrugsIndexPage() {
               return (
                 <Link key={drug.id} href={`/peptides/${drug.slug}`}>
                   <Card className="h-full hover:border-primary/40">
+                    {drug.image_url ? (
+                      <div className="relative h-44 overflow-hidden rounded-t-[--radius-xl] border-b border-border/60 bg-muted/30">
+                        <Image src={drug.image_url} alt={`${title} vial`} fill className="object-contain p-4" />
+                      </div>
+                    ) : null}
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle className="text-base">{title}</CardTitle>
@@ -99,6 +105,11 @@ export default async function DrugsIndexPage() {
             {investigational.map((drug) => (
               <Link key={drug.id} href={`/peptides/${drug.slug}`}>
                 <Card className="h-full hover:border-primary/40">
+                  {drug.image_url ? (
+                    <div className="relative h-44 overflow-hidden rounded-t-[--radius-xl] border-b border-border/60 bg-muted/30">
+                      <Image src={drug.image_url} alt={`${primaryDrugDisplayName(drug)} vial`} fill className="object-contain p-4" />
+                    </div>
+                  ) : null}
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">{primaryDrugDisplayName(drug)}</CardTitle>
                     <CardDescription>{drug.drug_class}</CardDescription>

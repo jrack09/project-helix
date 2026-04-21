@@ -59,6 +59,7 @@ components:
         brand_names: { type: array, items: { type: string } }
         drug_class:  { type: string, nullable: true }
         short_description: { type: string, nullable: true }
+        image_url:  { type: string, nullable: true, example: "/drugs/semaglutide-wegovy.png" }
         administration_route: { type: string, nullable: true }
         prescription_required: { type: boolean }
         evidence_score: { type: integer, nullable: true, minimum: 0, maximum: 100 }

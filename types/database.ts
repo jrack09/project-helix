@@ -60,6 +60,7 @@ export type Database = {
           administration_route: string | null;
           typical_dosing_schedule: string | null;
           prescription_required: boolean;
+          image_url: string | null;
           contraindications: string | null;
           drug_interactions: Json;
           storage_handling: string | null;
@@ -85,6 +86,7 @@ export type Database = {
           administration_route?: string | null;
           typical_dosing_schedule?: string | null;
           prescription_required?: boolean;
+          image_url?: string | null;
           contraindications?: string | null;
           drug_interactions?: Json;
           storage_handling?: string | null;

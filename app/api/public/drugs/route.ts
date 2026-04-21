@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const { data, error, count } = await admin
     .from('peptides')
     .select(
-      'id, slug, name, generic_name, brand_names, drug_class, short_description, administration_route, prescription_required, evidence_score, updated_at',
+      'id, slug, name, generic_name, brand_names, drug_class, short_description, image_url, administration_route, prescription_required, evidence_score, updated_at',
       { count: 'exact' },
     )
     .eq('is_visible', true)

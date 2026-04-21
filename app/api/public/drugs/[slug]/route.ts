@@ -83,6 +83,7 @@ export async function GET(
           typical_dosing_schedule: drug.typical_dosing_schedule,
           prescription_required: drug.prescription_required,
           short_description: drug.short_description,
+          image_url: drug.image_url,
           mechanism_summary: drug.mechanism_summary,
           evidence_score: drug.evidence_score,
           updated_at: drug.updated_at,

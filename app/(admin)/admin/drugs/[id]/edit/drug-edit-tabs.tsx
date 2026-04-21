@@ -98,6 +98,15 @@ function OverviewTab({ drug }: { drug: Drug }) {
             <Label htmlFor="status_label">Status label</Label>
             <Input id="status_label" name="status_label" defaultValue={drug.status_label} />
           </div>
+          <div className="col-span-2 space-y-1.5">
+            <Label htmlFor="image_url">Image URL</Label>
+            <Input
+              id="image_url"
+              name="image_url"
+              defaultValue={drug.image_url ?? ''}
+              placeholder="/drugs/semaglutide-wegovy.png"
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">
