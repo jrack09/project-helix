@@ -33,7 +33,7 @@ export async function GET(
     return NextResponse.json({ error: 'Drug not found.' }, { status: 404, headers: cors });
   }
 
-  const [expectations, foodGuidance, tips, sideEffects, reconstitutionGuide, doseReference] = await Promise.all([
+  const [expectations, foodGuidance, tips, sideEffects, injectionGuide, reconstitutionGuide, doseReference] = await Promise.all([
     admin
       .from('drug_expectations')
       .select('id, week_number, milestone, description, is_common')
@@ -54,6 +54,11 @@ export async function GET(
       .from('side_effects')
       .select('id, effect, severity, frequency, drug_side_effect_tips(id, strategy, when_to_seek_help, ordinal)')
       .eq('peptide_id', drug.id),
+    admin
+      .from('drug_injection_guide')
+      .select('id, step_type, formulation, ordinal, title, body')
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
     admin
       .from('drug_reconstitution_guide')
       .select(
@@ -92,6 +97,7 @@ export async function GET(
         food_guidance: foodGuidance.data ?? [],
         tips: tips.data ?? [],
         side_effects: sideEffects.data ?? [],
+        injection_guide: injectionGuide.data ?? [],
         reconstitution_guide: reconstitutionGuide.data ?? [],
         dose_reference: doseReference.data ?? [],
       },

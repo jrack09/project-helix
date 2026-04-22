@@ -112,6 +112,16 @@ components:
           type: array
           items: { $ref: '#/components/schemas/SideEffectTip' }
 
+    InjectionGuideStep:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        step_type:   { type: string, enum: [supply, step, warning, disposal] }
+        formulation: { type: string, enum: [pen, lyophilized] }
+        ordinal:     { type: integer }
+        title:       { type: string }
+        body:        { type: string, nullable: true }
+
     TrackerHints:
       type: object
       properties:
@@ -193,6 +203,7 @@ paths:
                       food_guidance: { type: array, items: { $ref: '#/components/schemas/FoodGuidance' } }
                       tips:         { type: array, items: { $ref: '#/components/schemas/Tip' } }
                       side_effects: { type: array, items: { $ref: '#/components/schemas/SideEffect' } }
+                      injection_guide: { type: array, items: { $ref: '#/components/schemas/InjectionGuideStep' } }
                   disclaimer: { $ref: '#/components/schemas/Disclaimer' }
                   meta:       { $ref: '#/components/schemas/Meta' }
         '401':
