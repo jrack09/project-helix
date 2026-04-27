@@ -33,7 +33,22 @@ export async function GET(
     return NextResponse.json({ error: 'Drug not found.' }, { status: 404, headers: cors });
   }
 
-  const [expectations, foodGuidance, tips, sideEffects, injectionGuide, reconstitutionGuide, doseReference] = await Promise.all([
+  const [
+    expectations,
+    foodGuidance,
+    tips,
+    sideEffects,
+    injectionGuide,
+    reconstitutionGuide,
+    doseReference,
+    sources,
+    warnings,
+    missedDoseRules,
+    approvedIndications,
+    doseEscalationPhases,
+    formulationStorage,
+    sideEffectThresholds,
+  ] = await Promise.all([
     admin
       .from('drug_expectations')
       .select('id, week_number, milestone, description, is_common')
@@ -72,6 +87,46 @@ export async function GET(
       .eq('drug_id', drug.id)
       .order('protocol_label', { ascending: true })
       .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_sources')
+      .select('id, source_type, label, url, region, authority, citation_text, retrieved_at, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_warnings')
+      .select('id, severity, title, body, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_missed_dose_rules')
+      .select('id, formulation, max_delay_hours, instruction, restart_guidance, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_approved_indications')
+      .select('id, region, authority, approval_status, indication, population, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_dose_escalation_phases')
+      .select(
+        'id, protocol_label, phase_label, start_week, end_week, dose_amount, dose_unit, frequency, route, phase_purpose, hold_or_reduce_guidance, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('protocol_label', { ascending: true })
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_formulation_storage')
+      .select(
+        'id, formulation, storage_state, temperature, protect_from_light, do_not_freeze, expiry_after_opening, expiry_after_reconstitution, handling_notes, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_side_effect_thresholds')
+      .select('id, side_effect_id, effect, threshold, action, action_label, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
   ]);
 
   return NextResponse.json(
@@ -92,6 +147,19 @@ export async function GET(
           mechanism_summary: drug.mechanism_summary,
           evidence_score: drug.evidence_score,
           updated_at: drug.updated_at,
+        },
+        clinical_profile: {
+          contraindications: drug.contraindications,
+          interactions: drug.drug_interactions,
+          storage_handling: drug.storage_handling,
+          pharmacokinetics: drug.pharmacokinetics,
+          warnings: warnings.data ?? [],
+          missed_dose_rules: missedDoseRules.data ?? [],
+          approved_indications: approvedIndications.data ?? [],
+          dose_escalation_phases: doseEscalationPhases.data ?? [],
+          storage: formulationStorage.data ?? [],
+          side_effect_thresholds: sideEffectThresholds.data ?? [],
+          sources: sources.data ?? [],
         },
         expectations: expectations.data ?? [],
         food_guidance: foodGuidance.data ?? [],

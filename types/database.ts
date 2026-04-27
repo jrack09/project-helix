@@ -10,6 +10,10 @@ export type ContentReviewAction = 'approved' | 'rejected' | 'requested_changes';
 export type ContentReviewEntityType = 'drug' | 'expectation' | 'food_guidance' | 'tip' | 'side_effect_tip' | 'ai_summary' | 'guide';
 export type AdministrationRoute = 'subcutaneous_injection' | 'intramuscular_injection' | 'oral' | 'intranasal' | 'topical' | 'intravenous';
 export type GuideCategory = 'getting_started' | 'administration' | 'nutrition' | 'side_effects' | 'lifestyle' | 'other';
+export type DrugSourceType = 'prescribing_information' | 'regulator' | 'study' | 'editorial' | 'other';
+export type DrugWarningSeverity = 'info' | 'caution' | 'urgent' | 'boxed_warning';
+export type DrugApprovalStatus = 'approved' | 'off_label' | 'investigational' | 'not_approved';
+export type SideEffectThresholdAction = 'self_monitor' | 'contact_prescriber' | 'urgent_care' | 'emergency';
 
 /** Empty FK graph — extend when you add PostgREST relationships */
 type EmptyRel = [];
@@ -183,6 +187,228 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['drug_dose_reference']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_sources: {
+        Row: {
+          id: string;
+          drug_id: string;
+          source_type: DrugSourceType;
+          label: string;
+          url: string | null;
+          region: string | null;
+          authority: string | null;
+          citation_text: string | null;
+          retrieved_at: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          source_type: DrugSourceType;
+          label: string;
+          url?: string | null;
+          region?: string | null;
+          authority?: string | null;
+          citation_text?: string | null;
+          retrieved_at?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_sources']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_warnings: {
+        Row: {
+          id: string;
+          drug_id: string;
+          severity: DrugWarningSeverity;
+          title: string;
+          body: string;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          severity: DrugWarningSeverity;
+          title: string;
+          body: string;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_warnings']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_missed_dose_rules: {
+        Row: {
+          id: string;
+          drug_id: string;
+          formulation: string | null;
+          max_delay_hours: number | null;
+          instruction: string;
+          restart_guidance: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          formulation?: string | null;
+          max_delay_hours?: number | null;
+          instruction: string;
+          restart_guidance?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_missed_dose_rules']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_approved_indications: {
+        Row: {
+          id: string;
+          drug_id: string;
+          region: string;
+          authority: string | null;
+          approval_status: DrugApprovalStatus;
+          indication: string;
+          population: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          region: string;
+          authority?: string | null;
+          approval_status?: DrugApprovalStatus;
+          indication: string;
+          population?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_approved_indications']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_dose_escalation_phases: {
+        Row: {
+          id: string;
+          drug_id: string;
+          protocol_label: string;
+          phase_label: string;
+          start_week: number;
+          end_week: number | null;
+          dose_amount: number | null;
+          dose_unit: string | null;
+          frequency: string | null;
+          route: string | null;
+          phase_purpose: string | null;
+          hold_or_reduce_guidance: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          protocol_label: string;
+          phase_label: string;
+          start_week: number;
+          end_week?: number | null;
+          dose_amount?: number | null;
+          dose_unit?: string | null;
+          frequency?: string | null;
+          route?: string | null;
+          phase_purpose?: string | null;
+          hold_or_reduce_guidance?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_dose_escalation_phases']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_formulation_storage: {
+        Row: {
+          id: string;
+          drug_id: string;
+          formulation: string;
+          storage_state: string | null;
+          temperature: string | null;
+          protect_from_light: boolean;
+          do_not_freeze: boolean;
+          expiry_after_opening: string | null;
+          expiry_after_reconstitution: string | null;
+          handling_notes: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          formulation: string;
+          storage_state?: string | null;
+          temperature?: string | null;
+          protect_from_light?: boolean;
+          do_not_freeze?: boolean;
+          expiry_after_opening?: string | null;
+          expiry_after_reconstitution?: string | null;
+          handling_notes?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_formulation_storage']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_side_effect_thresholds: {
+        Row: {
+          id: string;
+          drug_id: string;
+          side_effect_id: string | null;
+          effect: string;
+          threshold: string;
+          action: SideEffectThresholdAction;
+          action_label: string;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          side_effect_id?: string | null;
+          effect: string;
+          threshold: string;
+          action: SideEffectThresholdAction;
+          action_label: string;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_side_effect_thresholds']['Insert']>;
         Relationships: EmptyRel;
       };
       drug_expectations: {

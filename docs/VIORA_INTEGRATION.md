@@ -5,7 +5,7 @@
 PIP (project-helix) is the content backend for Viora. It provides per-drug companion content via a versioned REST API. Viora authenticates using a pre-issued API key and renders the content inside its existing companion tab.
 
 Viora owns: user accounts, tracking (weight, meals, calories), push notifications, reminders, app UI.
-PIP owns: drug metadata, weekly expectations, food guidance, tips, side-effect coping strategies.
+PIP owns: drug metadata, clinical support metadata, weekly expectations, food guidance, tips, side-effect coping strategies.
 
 ---
 
@@ -154,9 +154,45 @@ Full companion profile for a single drug.
         { "id": "uuid", "strategy": "Eat smaller, more frequent meals", "when_to_seek_help": "If vomiting persists beyond 48h, contact your prescriber", "ordinal": 0 }
       ]
     }
-  ]
+  ],
+  "clinical_profile": {
+    "contraindications": "Do not use if...",
+    "interactions": [
+      { "drug": "Insulin and insulin secretagogues", "interaction": "Increased hypoglycaemia risk.", "severity": "significant" }
+    ],
+    "storage_handling": "Store refrigerated at 2-8C until use...",
+    "pharmacokinetics": {
+      "half_life": "Approximately 1 week",
+      "tmax": "24-72 hours"
+    },
+    "warnings": [
+      { "id": "uuid", "severity": "boxed_warning", "title": "Thyroid C-cell tumour warning", "body": "...", "source_id": "uuid", "ordinal": 1 }
+    ],
+    "missed_dose_rules": [
+      { "id": "uuid", "formulation": "pen", "max_delay_hours": 120, "instruction": "...", "restart_guidance": "...", "source_id": "uuid", "ordinal": 1 }
+    ],
+    "approved_indications": [
+      { "id": "uuid", "region": "AU", "authority": "TGA", "approval_status": "approved", "indication": "...", "population": "...", "source_id": "uuid", "ordinal": 1 }
+    ],
+    "dose_escalation_phases": [
+      { "id": "uuid", "protocol_label": "Standard Wegovy escalation", "phase_label": "Weeks 1-4", "start_week": 1, "end_week": 4, "dose_amount": 0.25, "dose_unit": "mg", "frequency": "once weekly", "route": "subcutaneous injection", "phase_purpose": "Tolerability initiation dose.", "hold_or_reduce_guidance": "...", "source_id": "uuid", "ordinal": 1 }
+    ],
+    "storage": [
+      { "id": "uuid", "formulation": "single-dose pen", "storage_state": "before use", "temperature": "2-8C", "protect_from_light": true, "do_not_freeze": true, "expiry_after_opening": null, "expiry_after_reconstitution": null, "handling_notes": "...", "source_id": "uuid", "ordinal": 1 }
+    ],
+    "side_effect_thresholds": [
+      { "id": "uuid", "side_effect_id": "uuid", "effect": "Vomiting", "threshold": "Repeated vomiting or inability to keep fluids down.", "action": "contact_prescriber", "action_label": "Contact your prescriber promptly.", "source_id": "uuid", "ordinal": 1 }
+    ],
+    "sources": [
+      { "id": "uuid", "source_type": "prescribing_information", "label": "Wegovy prescribing information", "url": "https://www.novo-pi.com/wegovy.pdf", "region": "US", "authority": "FDA", "citation_text": "...", "retrieved_at": "2026-04-27", "ordinal": 1 }
+    ]
+  },
+  "reconstitution_guide": [],
+  "dose_reference": []
 }
 ```
+
+All `clinical_profile` arrays are optional from a rendering perspective and may be empty while PIP fills content across drugs. Viora should display warnings, missed-dose rules, thresholds, and citations as general information only, alongside the required disclaimer.
 
 ---
 

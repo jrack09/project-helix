@@ -32,6 +32,8 @@ Implement these endpoints first:
 3. `GET /drugs/:slug/expectations?week=<number>`
 4. `GET /drugs/:slug/tracker-hints`
 
+`GET /drugs/:slug` now also includes optional `clinical_profile`, `reconstitution_guide`, and `dose_reference` sections for richer companion rendering.
+
 Base URL prefix for all calls:
 
 `https://<your-pip-domain>/api/public`
@@ -88,9 +90,17 @@ Recommended cache behavior:
 Confirm and implement:
 
 - `drug.slug` drives routing/keying in Viora companion tab.
+- `clinical_profile.warnings` can drive prominent warning cards; use `severity` to distinguish `boxed_warning`, `urgent`, `caution`, and `info`.
+- `clinical_profile.missed_dose_rules` can drive missed-dose guidance. Render as static PIP guidance, not personalised medical advice.
+- `clinical_profile.approved_indications` carries indication, region, regulator/authority, and approval status. Prefer region-specific entries when Viora knows the user's market.
+- `clinical_profile.dose_escalation_phases` is the structured dose-escalation template for companion education. Do not treat it as a user-specific prescription.
+- `clinical_profile.storage` carries formulation-specific storage and expiry metadata; use this ahead of free-text `storage_handling` when both are available.
+- `clinical_profile.side_effect_thresholds` can power escalation prompts such as contact-prescriber or urgent-care guidance.
+- `clinical_profile.sources` provides citation metadata. Preserve source labels/URLs where rendered.
 - `tracker_hints.biomarkers` maps to Viora trackers.
 - `expectations` supports optional week filter for "This week" card.
 - Optional arrays (`food_guidance`, `tips`, `side_effects`) can be empty; UI should degrade gracefully.
+  The same applies to all `clinical_profile` arrays.
 
 Suggested biomarker-to-UI mapping:
 
@@ -109,6 +119,7 @@ Complete all checks before production enablement:
 
 - [ ] `GET /drugs` returns `200` with `data.drugs.length > 0`
 - [ ] `GET /drugs/semaglutide-wegovy` returns full companion payload
+- [ ] `GET /drugs/semaglutide-wegovy` includes `clinical_profile.warnings`, `missed_dose_rules`, `approved_indications`, `dose_escalation_phases`, `storage`, `side_effect_thresholds`, and `sources`
 - [ ] `GET /drugs/semaglutide-wegovy/expectations?week=1` returns week-specific data
 - [ ] `GET /drugs/semaglutide-wegovy/tracker-hints` returns biomarker hints
 - [ ] `disclaimer.text` is visibly rendered in companion UI
