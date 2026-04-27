@@ -75,6 +75,13 @@ export default async function DrugDetailPage({ params }: Props) {
     injectionGuideRes,
     reconstitutionGuideRes,
     doseReferenceRes,
+    sourcesRes,
+    warningsRes,
+    missedDoseRulesRes,
+    approvedIndicationsRes,
+    doseEscalationPhasesRes,
+    formulationStorageRes,
+    sideEffectThresholdsRes,
   ] = await Promise.all([
     supabase
       .from('drug_expectations')
@@ -94,7 +101,11 @@ export default async function DrugDetailPage({ params }: Props) {
       .eq('drug_id', drug.id)
       .order('ordinal')
       .limit(20),
-    supabase.from('side_effects').select('id, effect, severity, frequency').eq('peptide_id', drug.id).limit(12),
+    supabase
+      .from('side_effects')
+      .select('id, effect, severity, frequency')
+      .eq('peptide_id', drug.id)
+      .limit(12),
     supabase.from('study_peptides').select('study_id').eq('peptide_id', drug.id),
     supabase
       .from('study_dosages')
@@ -119,6 +130,46 @@ export default async function DrugDetailPage({ params }: Props) {
     supabase
       .from('drug_dose_reference')
       .select('id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_sources')
+      .select('id, source_type, label, url, region, authority, citation_text, retrieved_at, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_warnings')
+      .select('id, severity, title, body, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_missed_dose_rules')
+      .select('id, formulation, max_delay_hours, instruction, restart_guidance, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_approved_indications')
+      .select('id, region, authority, approval_status, indication, population, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_dose_escalation_phases')
+      .select(
+        'id, protocol_label, phase_label, start_week, end_week, dose_amount, dose_unit, frequency, route, phase_purpose, hold_or_reduce_guidance, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('protocol_label')
+      .order('ordinal'),
+    supabase
+      .from('drug_formulation_storage')
+      .select(
+        'id, formulation, storage_state, temperature, protect_from_light, do_not_freeze, expiry_after_opening, expiry_after_reconstitution, handling_notes, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_side_effect_thresholds')
+      .select('id, side_effect_id, effect, threshold, action, action_label, source_id, ordinal')
       .eq('drug_id', drug.id)
       .order('ordinal'),
   ]);
@@ -149,6 +200,24 @@ export default async function DrugDetailPage({ params }: Props) {
           }>,
         };
 
+  const sideEffectIds = (sideEffectsRes.data ?? []).map((sideEffect) => sideEffect.id);
+  const sideEffectTipsRes =
+    sideEffectIds.length > 0
+      ? await supabase
+          .from('drug_side_effect_tips')
+          .select('id, side_effect_id, strategy, when_to_seek_help, ordinal')
+          .in('side_effect_id', sideEffectIds)
+          .order('ordinal')
+      : {
+          data: [] as Array<{
+            id: string;
+            side_effect_id: string;
+            strategy: string;
+            when_to_seek_help: string | null;
+            ordinal: number;
+          }>,
+        };
+
   let regionNote: string | null = null;
   if (user) {
     const { data: profile } = await supabase.from('profiles').select('region_code').eq('id', user.id).single();
@@ -162,9 +231,17 @@ export default async function DrugDetailPage({ params }: Props) {
   const food = foodRes.data ?? [];
   const tips = tipsRes.data ?? [];
   const sideEffects = sideEffectsRes.data ?? [];
+  const sideEffectTips = sideEffectTipsRes.data ?? [];
   const studies = studiesRes.data ?? [];
   const dosages = dosagesRes.data ?? [];
   const outcomes = outcomesRes.data ?? [];
+  const sources = sourcesRes.data ?? [];
+  const warnings = warningsRes.data ?? [];
+  const missedDoseRules = missedDoseRulesRes.data ?? [];
+  const approvedIndications = approvedIndicationsRes.data ?? [];
+  const doseEscalationPhases = doseEscalationPhasesRes.data ?? [];
+  const formulationStorage = formulationStorageRes.data ?? [];
+  const sideEffectThresholds = sideEffectThresholdsRes.data ?? [];
 
   const injectionGuide = injectionGuideRes.data ?? [];
   const injectionByType = (['supply', 'step', 'warning', 'disposal'] as const).reduce(
@@ -179,6 +256,14 @@ export default async function DrugDetailPage({ params }: Props) {
     return acc;
   }, {});
   const doseProtocolLabels = [...new Set(doseReference.map((r) => r.protocol_label))];
+  const dosePhasesByProtocol = doseEscalationPhases.reduce<Record<string, typeof doseEscalationPhases>>(
+    (acc, phase) => {
+      (acc[phase.protocol_label] ||= []).push(phase);
+      return acc;
+    },
+    {},
+  );
+  const dosePhaseLabels = [...new Set(doseEscalationPhases.map((phase) => phase.protocol_label))];
 
   // True when the drug is a compounded/lyophilized formulation
   const hasReconstitution = reconstitutionGuide.length > 0 || doseReference.length > 0;
@@ -194,6 +279,10 @@ export default async function DrugDetailPage({ params }: Props) {
   }, {});
   const outcomesByStudy = outcomes.reduce<Record<string, typeof outcomes>>((acc, o) => {
     (acc[o.study_id] ||= []).push(o);
+    return acc;
+  }, {});
+  const sideEffectTipsById = sideEffectTips.reduce<Record<string, typeof sideEffectTips>>((acc, tip) => {
+    (acc[tip.side_effect_id] ||= []).push(tip);
     return acc;
   }, {});
 
@@ -235,6 +324,25 @@ export default async function DrugDetailPage({ params }: Props) {
     {} as Record<string, typeof food>,
   );
 
+  const WARNING_LABEL: Record<string, string> = {
+    info: 'Info',
+    caution: 'Caution',
+    urgent: 'Urgent',
+    boxed_warning: 'Boxed warning',
+  };
+  const APPROVAL_LABEL: Record<string, string> = {
+    approved: 'Approved',
+    off_label: 'Off label',
+    investigational: 'Investigational',
+    not_approved: 'Not approved',
+  };
+  const THRESHOLD_ACTION_LABEL: Record<string, string> = {
+    self_monitor: 'Monitor',
+    contact_prescriber: 'Contact prescriber',
+    urgent_care: 'Urgent care',
+    emergency: 'Emergency',
+  };
+
   // Quickstart highlights derived from drug fields — no extra query needed
   const quickstartHighlights: Array<{ icon: string; text: string }> = (
     [
@@ -254,6 +362,9 @@ export default async function DrugDetailPage({ params }: Props) {
   const tocItems = [
     { id: 'overview', label: 'Overview' },
     ...(drug.mechanism_summary || pkEntries.length > 0 ? [{ id: 'mechanism', label: 'How it works' }] : []),
+    ...(doseEscalationPhases.length > 0 && !hasReconstitution && !hasPenGuide
+      ? [{ id: 'dosing', label: 'Dosing' }]
+      : []),
     ...(hasReconstitution
       ? [{ id: 'reconstitution', label: 'Dosing & reconstitution' }]
       : hasPenGuide
@@ -263,8 +374,17 @@ export default async function DrugDetailPage({ params }: Props) {
       ? [{ id: 'clinical', label: 'Benefits & side effects' }]
       : []),
     ...(food.length > 0 || practicalTips.length > 0 ? [{ id: 'guidance', label: 'Nutrition & tips' }] : []),
-    ...(drug.contraindications || interactionList.length > 0 ? [{ id: 'safety', label: 'Safety & interactions' }] : []),
-    ...(studies.length > 0 ? [{ id: 'evidence', label: 'Research evidence' }] : []),
+    ...(drug.contraindications ||
+    interactionList.length > 0 ||
+    warnings.length > 0 ||
+    approvedIndications.length > 0 ||
+    missedDoseRules.length > 0 ||
+    formulationStorage.length > 0 ||
+    sideEffectThresholds.length > 0 ||
+    drug.storage_handling
+      ? [{ id: 'safety', label: 'Safety & interactions' }]
+      : []),
+    ...(studies.length > 0 || sources.length > 0 ? [{ id: 'evidence', label: 'Research evidence' }] : []),
   ];
 
   const quickFacts = [
@@ -286,6 +406,66 @@ export default async function DrugDetailPage({ params }: Props) {
       value: drug.evidence_score != null ? String(drug.evidence_score) : 'Literature linked below',
     },
   ];
+
+  const doseEscalationContent =
+    dosePhaseLabels.length > 0 ? (
+      <div className="space-y-4">
+        {dosePhaseLabels.map((label) => (
+          <div key={label} className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Phase
+                    </th>
+                    <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Dose
+                    </th>
+                    <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Frequency
+                    </th>
+                    <th className="pb-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Guidance
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dosePhasesByProtocol[label].map((phase) => {
+                    const dose =
+                      phase.dose_amount != null
+                        ? `${phase.dose_amount} ${phase.dose_unit ?? ''}`.trim()
+                        : 'Protocol specific';
+                    return (
+                      <tr key={phase.id} className="border-b border-border/50 align-top">
+                        <td className="py-2 pr-4">
+                          <span className="font-medium">{phase.phase_label}</span>
+                          <p className="text-xs text-muted-foreground">
+                            Week {phase.start_week}
+                            {phase.end_week ? `-${phase.end_week}` : '+'}
+                          </p>
+                        </td>
+                        <td className="py-2 pr-4 tabular-nums">{dose}</td>
+                        <td className="py-2 pr-4">{phase.frequency ?? 'See source'}</td>
+                        <td className="py-2">
+                          {phase.phase_purpose && <p>{phase.phase_purpose}</p>}
+                          {phase.hold_or_reduce_guidance && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {phase.hold_or_reduce_guidance}
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : null;
 
   return (
     <main className="section-shell py-8 pb-24 sm:py-10 sm:pb-10">
@@ -387,6 +567,16 @@ export default async function DrugDetailPage({ params }: Props) {
               </ProtocolBlock>
             )}
 
+            {doseEscalationContent && !hasReconstitution && !hasPenGuide && (
+              <ProtocolBlock
+                id="dosing"
+                title="Dosing overview"
+                subtitle="Structured dosing phases exposed through the public drug API."
+              >
+                {doseEscalationContent}
+              </ProtocolBlock>
+            )}
+
             {/* ── Dosing & Reconstitution Guide (lyophilised / compounded drugs) ── */}
             {hasReconstitution && (
               <ProtocolBlock
@@ -402,6 +592,15 @@ export default async function DrugDetailPage({ params }: Props) {
                         Protocol overview
                       </p>
                       <p className="mt-1.5 text-sm leading-relaxed">{drug.typical_dosing_schedule}</p>
+                    </div>
+                  )}
+
+                  {doseEscalationContent && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Dose escalation phases
+                      </p>
+                      {doseEscalationContent}
                     </div>
                   )}
 
@@ -623,6 +822,15 @@ export default async function DrugDetailPage({ params }: Props) {
                 subtitle="Supplies, step-by-step technique, safety notes, and AU sharps disposal."
               >
                 <div className="space-y-6">
+                  {doseEscalationContent && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Dose escalation phases
+                      </p>
+                      {doseEscalationContent}
+                    </div>
+                  )}
+
                   {injectionByType.supply.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -747,6 +955,20 @@ export default async function DrugDetailPage({ params }: Props) {
                                 <span className="ml-1.5 text-xs text-muted-foreground">({s.severity})</span>
                               )}
                               {s.frequency && <p className="text-xs text-muted-foreground">{s.frequency}</p>}
+                              {sideEffectTipsById[s.id] && sideEffectTipsById[s.id].length > 0 && (
+                                <ul className="mt-1 space-y-1">
+                                  {sideEffectTipsById[s.id]
+                                    .sort((a, b) => a.ordinal - b.ordinal)
+                                    .map((tip) => (
+                                      <li key={tip.id} className="text-xs text-muted-foreground">
+                                        {tip.strategy}
+                                        {tip.when_to_seek_help && (
+                                          <span className="block">Seek help: {tip.when_to_seek_help}</span>
+                                        )}
+                                      </li>
+                                    ))}
+                                </ul>
+                              )}
                             </span>
                           </div>
                         ))}
@@ -850,13 +1072,69 @@ export default async function DrugDetailPage({ params }: Props) {
             )}
 
             {/* ── Safety & Interactions ── */}
-            {(drug.contraindications || interactionList.length > 0 || (!hasReconstitution && drug.storage_handling)) && (
+            {(drug.contraindications ||
+              interactionList.length > 0 ||
+              warnings.length > 0 ||
+              approvedIndications.length > 0 ||
+              missedDoseRules.length > 0 ||
+              formulationStorage.length > 0 ||
+              sideEffectThresholds.length > 0 ||
+              drug.storage_handling) && (
               <ProtocolBlock
                 id="safety"
                 title="Safety and interactions"
                 subtitle="Share this information with your prescriber for personalised care decisions."
               >
                 <div className="space-y-4">
+                  {warnings.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Structured warnings
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {warnings.map((warning) => (
+                          <div
+                            key={warning.id}
+                            className="rounded-[--radius] border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">{WARNING_LABEL[warning.severity] ?? warning.severity}</Badge>
+                              <p className="text-sm font-semibold">{warning.title}</p>
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{warning.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {approvedIndications.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Indication and approval status
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {approvedIndications.map((indication) => (
+                          <div key={indication.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">
+                                {APPROVAL_LABEL[indication.approval_status] ?? indication.approval_status}
+                              </Badge>
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {indication.region}
+                                {indication.authority ? ` · ${indication.authority}` : ''}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm">{indication.indication}</p>
+                            {indication.population && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">{indication.population}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {drug.contraindications && (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -889,7 +1167,79 @@ export default async function DrugDetailPage({ params }: Props) {
                       </ul>
                     </div>
                   )}
-                  {!hasReconstitution && drug.storage_handling && (
+
+                  {missedDoseRules.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Missed-dose guidance
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {missedDoseRules.map((rule) => (
+                          <div key={rule.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <p className="text-sm">{rule.instruction}</p>
+                            {rule.restart_guidance && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">{rule.restart_guidance}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {sideEffectThresholds.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        When to seek help
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {sideEffectThresholds.map((threshold) => (
+                          <div key={threshold.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold">{threshold.effect}</span>
+                              <Badge variant="outline">
+                                {THRESHOLD_ACTION_LABEL[threshold.action] ?? threshold.action}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{threshold.threshold}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{threshold.action_label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {formulationStorage.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Structured storage
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {formulationStorage.map((storage) => (
+                          <div key={storage.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <p className="text-sm font-semibold">{storage.formulation}</p>
+                            {storage.storage_state && (
+                              <p className="text-xs text-muted-foreground">{storage.storage_state}</p>
+                            )}
+                            {storage.temperature && <p className="mt-1 text-sm">{storage.temperature}</p>}
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {storage.protect_from_light && <Badge variant="secondary">Protect from light</Badge>}
+                              {storage.do_not_freeze && <Badge variant="secondary">Do not freeze</Badge>}
+                            </div>
+                            {(storage.expiry_after_opening || storage.expiry_after_reconstitution) && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {storage.expiry_after_opening ?? storage.expiry_after_reconstitution}
+                              </p>
+                            )}
+                            {storage.handling_notes && (
+                              <p className="mt-1 text-xs text-muted-foreground">{storage.handling_notes}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {drug.storage_handling && (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Storage and handling
@@ -904,13 +1254,49 @@ export default async function DrugDetailPage({ params }: Props) {
             )}
 
             {/* ── Research Evidence ── */}
-            {studies.length > 0 && (
+            {(studies.length > 0 || sources.length > 0) && (
               <ProtocolBlock
                 id="evidence"
                 title="Research evidence"
-                subtitle="Published studies connected to this peptide with dosage and outcomes context."
+                subtitle="Published studies, labels, regulator pages, and curated protocol sources connected to this profile."
               >
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  {sources.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        API source references
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {sources.map((source) => (
+                          <div key={source.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">{source.source_type.replace(/_/g, ' ')}</Badge>
+                              {(source.region || source.authority) && (
+                                <span className="text-xs text-muted-foreground">
+                                  {[source.region, source.authority].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-sm font-semibold">{source.label}</p>
+                            {source.citation_text && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">{source.citation_text}</p>
+                            )}
+                            {source.url && (
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex text-xs font-medium hover:underline"
+                              >
+                                Open source ↗
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {studies.map((s) => {
                     const meta = [
                       STUDY_TYPE_LABEL[s.study_type] ?? s.study_type,
