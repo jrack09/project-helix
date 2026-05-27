@@ -4,16 +4,25 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { Badge } from '@/components/ui/badge';
 import { DrugEditTabs } from './drug-edit-tabs';
 import { GenerateContentButton } from './generate-button';
+import { GeneratePipExtensionsButton } from './generate-pip-button';
 
 export default async function DrugEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
-  const [drugRes, expectationsRes, foodRes, tipsRes] = await Promise.all([
+  const [
+    drugRes, expectationsRes, foodRes, tipsRes,
+    warningsRes, injectionSitesRes, sideEffectWindowsRes, oralAdminRes, sideEffectsRes,
+  ] = await Promise.all([
     supabase.from('peptides').select('*').eq('id', id).maybeSingle(),
     supabase.from('drug_expectations').select('*').eq('drug_id', id).order('week_number'),
     supabase.from('drug_food_guidance').select('*').eq('drug_id', id).order('ordinal'),
     supabase.from('drug_tips').select('*').eq('drug_id', id).order('ordinal'),
+    supabase.from('drug_warnings').select('*').eq('drug_id', id).order('ordinal'),
+    supabase.from('drug_injection_sites').select('*').eq('drug_id', id).order('ordinal'),
+    supabase.from('drug_side_effect_windows').select('*').eq('drug_id', id).order('ordinal'),
+    supabase.from('drug_oral_administration').select('*').eq('drug_id', id).order('ordinal'),
+    supabase.from('side_effects').select('id, effect').eq('peptide_id', id),
   ]);
 
   const hasContent =
@@ -47,12 +56,18 @@ export default async function DrugEditPage({ params }: { params: Promise<{ id: s
       </div>
 
       <GenerateContentButton drugId={id} hasContent={hasContent} />
+      <GeneratePipExtensionsButton drugId={id} />
 
       <DrugEditTabs
         drug={drug}
         expectations={expectationsRes.data ?? []}
         foodGuidance={foodRes.data ?? []}
         tips={tipsRes.data ?? []}
+        warnings={warningsRes.data ?? []}
+        injectionSites={injectionSitesRes.data ?? []}
+        sideEffectWindows={sideEffectWindowsRes.data ?? []}
+        oralAdministration={oralAdminRes.data ?? []}
+        sideEffects={sideEffectsRes.data ?? []}
       />
     </div>
   );

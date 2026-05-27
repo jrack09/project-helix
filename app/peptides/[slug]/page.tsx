@@ -55,7 +55,7 @@ export default async function DrugDetailPage({ params }: Props) {
   const { data: drug } = await supabase
     .from('peptides')
     .select(
-      'id, slug, name, generic_name, brand_names, drug_class, administration_route, typical_dosing_schedule, short_description, mechanism_summary, evidence_score, status_label, prescription_required, image_url, contraindications, drug_interactions, storage_handling, pharmacokinetics',
+      'id, slug, name, generic_name, brand_names, drug_class, administration_route, typical_dosing_schedule, short_description, mechanism_summary, evidence_score, status_label, prescription_required, image_url, contraindications, drug_interactions, storage_handling, pharmacokinetics, half_life_hours, tmax_hours, duration_of_action_hours',
     )
     .eq('slug', slug)
     .eq('is_visible', true)
@@ -82,6 +82,9 @@ export default async function DrugDetailPage({ params }: Props) {
     doseEscalationPhasesRes,
     formulationStorageRes,
     sideEffectThresholdsRes,
+    sideEffectWindowsRes,
+    injectionSitesRes,
+    oralAdministrationRes,
   ] = await Promise.all([
     supabase
       .from('drug_expectations')
@@ -139,7 +142,7 @@ export default async function DrugDetailPage({ params }: Props) {
       .order('ordinal'),
     supabase
       .from('drug_warnings')
-      .select('id, severity, title, body, source_id, ordinal')
+      .select('id, severity, title, body, is_red_flag, source_id, ordinal')
       .eq('drug_id', drug.id)
       .order('ordinal'),
     supabase
@@ -170,6 +173,25 @@ export default async function DrugDetailPage({ params }: Props) {
     supabase
       .from('drug_side_effect_thresholds')
       .select('id, side_effect_id, effect, threshold, action, action_label, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_side_effect_windows')
+      .select(
+        'id, side_effect_id, effect, onset_hours_min, onset_hours_max, peak_hours_min, peak_hours_max, resolution_days_typical, notes, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_injection_sites')
+      .select('id, site, preferred, rotation_guidance, avoid_notes, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_oral_administration')
+      .select(
+        'id, formulation, with_water_ml, swallow_whole, time_of_day, fasting_window_before_min, fasting_window_after_min, interaction_notes, source_id, ordinal',
+      )
       .eq('drug_id', drug.id)
       .order('ordinal'),
   ]);
@@ -237,11 +259,15 @@ export default async function DrugDetailPage({ params }: Props) {
   const outcomes = outcomesRes.data ?? [];
   const sources = sourcesRes.data ?? [];
   const warnings = warningsRes.data ?? [];
+  const redFlagWarnings = warnings.filter((w) => w.is_red_flag);
   const missedDoseRules = missedDoseRulesRes.data ?? [];
   const approvedIndications = approvedIndicationsRes.data ?? [];
   const doseEscalationPhases = doseEscalationPhasesRes.data ?? [];
   const formulationStorage = formulationStorageRes.data ?? [];
   const sideEffectThresholds = sideEffectThresholdsRes.data ?? [];
+  const sideEffectWindows = sideEffectWindowsRes.data ?? [];
+  const injectionSites = injectionSitesRes.data ?? [];
+  const oralAdministration = oralAdministrationRes.data ?? [];
 
   const injectionGuide = injectionGuideRes.data ?? [];
   const injectionByType = (['supply', 'step', 'warning', 'disposal'] as const).reduce(
@@ -312,6 +338,17 @@ export default async function DrugDetailPage({ params }: Props) {
     clearance: 'Clearance',
   };
   const pkEntries = Object.entries(pk).filter(([, v]) => typeof v === 'string' && v.length > 0);
+
+  const formatHours = (h: number | null): string | null => {
+    if (h == null) return null;
+    if (h >= 48) return `${(h / 24).toFixed(h % 24 === 0 ? 0 : 1)} days`;
+    return `${h % 1 === 0 ? h : h.toFixed(1)} h`;
+  };
+  const pkNumeric: Array<{ label: string; value: string }> = [
+    { label: 'Half-life', value: formatHours(drug.half_life_hours) ?? '' },
+    { label: 'Tmax', value: formatHours(drug.tmax_hours) ?? '' },
+    { label: 'Duration of action', value: formatHours(drug.duration_of_action_hours) ?? '' },
+  ].filter((p) => p.value);
 
   const FOOD_LABEL: Record<string, string> = {
     prefer: '✅ Prefer',
@@ -541,7 +578,7 @@ export default async function DrugDetailPage({ params }: Props) {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
           <div className="space-y-8">
             {/* ── How it works ── */}
-            {(drug.mechanism_summary || pkEntries.length > 0) && (
+            {(drug.mechanism_summary || pkEntries.length > 0 || pkNumeric.length > 0) && (
               <ProtocolBlock
                 id="mechanism"
                 title="How this works"
@@ -550,6 +587,21 @@ export default async function DrugDetailPage({ params }: Props) {
                 <div className="space-y-4">
                   {drug.mechanism_summary && (
                     <p className="text-sm leading-relaxed">{drug.mechanism_summary}</p>
+                  )}
+                  {pkNumeric.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {pkNumeric.map((p) => (
+                        <div
+                          key={p.label}
+                          className="rounded-[--radius] border border-border bg-background px-3 py-2"
+                        >
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {p.label}
+                          </p>
+                          <p className="text-sm font-semibold">{p.value}</p>
+                        </div>
+                      ))}
+                    </div>
                   )}
                   {pkEntries.length > 0 && (
                     <dl className="grid gap-x-6 gap-y-3 rounded-[--radius] border border-border bg-background p-4 sm:grid-cols-2">
@@ -1079,6 +1131,9 @@ export default async function DrugDetailPage({ params }: Props) {
               missedDoseRules.length > 0 ||
               formulationStorage.length > 0 ||
               sideEffectThresholds.length > 0 ||
+              sideEffectWindows.length > 0 ||
+              injectionSites.length > 0 ||
+              oralAdministration.length > 0 ||
               drug.storage_handling) && (
               <ProtocolBlock
                 id="safety"
@@ -1086,6 +1141,22 @@ export default async function DrugDetailPage({ params }: Props) {
                 subtitle="Share this information with your prescriber for personalised care decisions."
               >
                 <div className="space-y-4">
+                  {redFlagWarnings.length > 0 && (
+                    <div className="rounded-[--radius] border-2 border-destructive/40 bg-destructive/5 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-destructive">
+                        Red-flag symptoms — seek urgent care
+                      </p>
+                      <ul className="mt-2 space-y-2">
+                        {redFlagWarnings.map((flag) => (
+                          <li key={flag.id} className="text-sm">
+                            <span className="font-semibold">{flag.title}.</span>{' '}
+                            <span className="text-muted-foreground">{flag.body}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {warnings.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1202,6 +1273,98 @@ export default async function DrugDetailPage({ params }: Props) {
                             </div>
                             <p className="mt-1 text-sm text-muted-foreground">{threshold.threshold}</p>
                             <p className="mt-1 text-xs text-muted-foreground">{threshold.action_label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {sideEffectWindows.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Side-effect timing windows
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Population typicals from trial data — individual experience varies.
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {sideEffectWindows.map((window) => {
+                          const fmtRange = (lo: number | null, hi: number | null, unit: string) => {
+                            if (lo == null && hi == null) return '—';
+                            if (lo != null && hi != null && lo !== hi) return `${lo}–${hi} ${unit}`;
+                            return `${lo ?? hi} ${unit}`;
+                          };
+                          return (
+                            <div key={window.id} className="rounded-[--radius] border border-border bg-background p-3">
+                              <p className="text-sm font-semibold">{window.effect}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Onset {fmtRange(window.onset_hours_min, window.onset_hours_max, 'h')} ·{' '}
+                                Peak {fmtRange(window.peak_hours_min, window.peak_hours_max, 'h')} ·{' '}
+                                Resolves {window.resolution_days_typical != null ? `~${window.resolution_days_typical}d` : '—'}
+                              </p>
+                              {window.notes && (
+                                <p className="mt-1 text-xs text-muted-foreground">{window.notes}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {injectionSites.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Approved injection sites
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {injectionSites.map((site) => {
+                          const SITE_LABEL: Record<string, string> = {
+                            abdomen: 'Abdomen', thigh: 'Thigh', upper_arm: 'Upper arm', buttock: 'Buttock', other: 'Other',
+                          };
+                          return (
+                            <div key={site.id} className="rounded-[--radius] border border-border bg-background p-3">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold">{SITE_LABEL[site.site] ?? site.site}</p>
+                                {site.preferred && <Badge variant="secondary">Preferred</Badge>}
+                              </div>
+                              {site.rotation_guidance && (
+                                <p className="mt-1 text-xs text-muted-foreground">{site.rotation_guidance}</p>
+                              )}
+                              {site.avoid_notes && (
+                                <p className="mt-1 text-xs text-muted-foreground">Avoid: {site.avoid_notes}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {oralAdministration.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Oral administration
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {oralAdministration.map((oa) => (
+                          <div key={oa.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <p className="text-sm font-semibold">
+                              {oa.formulation}
+                              {oa.swallow_whole && <span className="ml-2 text-xs font-normal text-muted-foreground">swallow whole</span>}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {oa.with_water_ml != null && <>With {oa.with_water_ml} mL water · </>}
+                              {oa.time_of_day && <>{oa.time_of_day}</>}
+                            </p>
+                            {(oa.fasting_window_before_min != null || oa.fasting_window_after_min != null) && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Fast {oa.fasting_window_before_min ?? 0}m before / {oa.fasting_window_after_min ?? 0}m after
+                              </p>
+                            )}
+                            {oa.interaction_notes && (
+                              <p className="mt-1 text-xs text-muted-foreground">{oa.interaction_notes}</p>
+                            )}
                           </div>
                         ))}
                       </div>

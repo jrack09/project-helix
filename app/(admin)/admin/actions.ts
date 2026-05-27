@@ -444,3 +444,466 @@ export async function archiveGuide(guideId: string) {
   revalidatePath(`/admin/guides/${guideId}/edit`);
   revalidatePath('/admin/guides');
 }
+
+// ── Drug pharmacokinetics (numeric) ────────────────────────
+
+const drugPharmacokineticsSchema = z.object({
+  id: z.string().uuid(),
+  half_life_hours: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+  tmax_hours: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+  duration_of_action_hours: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+});
+
+function toNumOrNull(v: number | '' | undefined) {
+  return typeof v === 'number' ? v : null;
+}
+
+export async function saveDrugPharmacokinetics(formData: FormData) {
+  const { supabase } = await requireEditor();
+  const parsed = drugPharmacokineticsSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.flatten().formErrors.join(', '));
+  const d = parsed.data;
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin
+    .from('peptides')
+    .update({
+      half_life_hours: toNumOrNull(d.half_life_hours),
+      tmax_hours: toNumOrNull(d.tmax_hours),
+      duration_of_action_hours: toNumOrNull(d.duration_of_action_hours),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', d.id);
+  if (error) throw new Error(error.message);
+  await writeAuditLog(supabase, { action: 'drug.pk_updated', entity_type: 'drug', entity_id: d.id });
+  revalidatePath(`/admin/drugs/${d.id}/edit`);
+}
+
+// ── Drug warnings (+ red-flag toggle) ──────────────────────
+
+const warningSchema = z.object({
+  drug_id: z.string().uuid(),
+  severity: z.enum(['info', 'caution', 'urgent', 'boxed_warning']),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  is_red_flag: z.coerce.boolean().optional(),
+});
+
+export async function addWarning(formData: FormData) {
+  await requireEditor();
+  const parsed = warningSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.flatten().formErrors.join(', '));
+  const d = parsed.data;
+  assertComplianceSafe(d.body, 'body');
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from('drug_warnings').insert({
+    drug_id: d.drug_id,
+    severity: d.severity,
+    title: d.title,
+    body: d.body,
+    is_red_flag: d.is_red_flag ?? false,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/drugs/${d.drug_id}/edit`);
+}
+
+export async function toggleWarningRedFlag(id: string, drugId: string, value: boolean) {
+  await requireEditor();
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from('drug_warnings').update({ is_red_flag: value, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/drugs/${drugId}/edit`);
+}
+
+export async function deleteWarning(id: string, drugId: string) {
+  await requireEditor();
+  const admin = createAdminSupabaseClient();
+  await admin.from('drug_warnings').delete().eq('id', id);
+  revalidatePath(`/admin/drugs/${drugId}/edit`);
+}
+
+// ── Injection sites ────────────────────────────────────────
+
+const injectionSiteSchema = z.object({
+  drug_id: z.string().uuid(),
+  site: z.enum(['abdomen', 'thigh', 'upper_arm', 'buttock', 'other']),
+  preferred: z.coerce.boolean().optional(),
+  rotation_guidance: z.string().optional(),
+  avoid_notes: z.string().optional(),
+});
+
+export async function addInjectionSite(formData: FormData) {
+  await requireEditor();
+  const parsed = injectionSiteSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.flatten().formErrors.join(', '));
+  const d = parsed.data;
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from('drug_injection_sites').insert({
+    drug_id: d.drug_id,
+    site: d.site,
+    preferred: d.preferred ?? false,
+    rotation_guidance: d.rotation_guidance ?? null,
+    avoid_notes: d.avoid_notes ?? null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/drugs/${d.drug_id}/edit`);
+}
+
+export async function deleteInjectionSite(id: string, drugId: string) {
+  await requireEditor();
+  const admin = createAdminSupabaseClient();
+  await admin.from('drug_injection_sites').delete().eq('id', id);
+  revalidatePath(`/admin/drugs/${drugId}/edit`);
+}
+
+// ── Side-effect windows ────────────────────────────────────
+
+const sideEffectWindowSchema = z.object({
+  drug_id: z.string().uuid(),
+  side_effect_id: z.string().uuid().optional().or(z.literal('')),
+  effect: z.string().min(1),
+  onset_hours_min: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+  onset_hours_max: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+  peak_hours_min: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+  peak_hours_max: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+  resolution_days_typical: z.union([z.coerce.number().nonnegative(), z.literal('')]).optional(),
+  notes: z.string().optional(),
+});
+
+export async function addSideEffectWindow(formData: FormData) {
+  await requireEditor();
+  const parsed = sideEffectWindowSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.flatten().formErrors.join(', '));
+  const d = parsed.data;
+  if (d.notes) assertComplianceSafe(d.notes, 'notes');
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from('drug_side_effect_windows').insert({
+    drug_id: d.drug_id,
+    side_effect_id: d.side_effect_id && d.side_effect_id !== '' ? d.side_effect_id : null,
+    effect: d.effect,
+    onset_hours_min: toNumOrNull(d.onset_hours_min),
+    onset_hours_max: toNumOrNull(d.onset_hours_max),
+    peak_hours_min: toNumOrNull(d.peak_hours_min),
+    peak_hours_max: toNumOrNull(d.peak_hours_max),
+    resolution_days_typical: toNumOrNull(d.resolution_days_typical),
+    notes: d.notes ?? null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/drugs/${d.drug_id}/edit`);
+}
+
+export async function deleteSideEffectWindow(id: string, drugId: string) {
+  await requireEditor();
+  const admin = createAdminSupabaseClient();
+  await admin.from('drug_side_effect_windows').delete().eq('id', id);
+  revalidatePath(`/admin/drugs/${drugId}/edit`);
+}
+
+// ── Oral administration ────────────────────────────────────
+
+const oralAdminSchema = z.object({
+  drug_id: z.string().uuid(),
+  formulation: z.string().min(1),
+  with_water_ml: z.union([z.coerce.number().int().nonnegative(), z.literal('')]).optional(),
+  swallow_whole: z.coerce.boolean().optional(),
+  time_of_day: z.string().optional(),
+  fasting_window_before_min: z.union([z.coerce.number().int().nonnegative(), z.literal('')]).optional(),
+  fasting_window_after_min: z.union([z.coerce.number().int().nonnegative(), z.literal('')]).optional(),
+  interaction_notes: z.string().optional(),
+});
+
+export async function addOralAdministration(formData: FormData) {
+  await requireEditor();
+  const parsed = oralAdminSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.flatten().formErrors.join(', '));
+  const d = parsed.data;
+  if (d.interaction_notes) assertComplianceSafe(d.interaction_notes, 'interaction_notes');
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from('drug_oral_administration').insert({
+    drug_id: d.drug_id,
+    formulation: d.formulation,
+    with_water_ml: toNumOrNull(d.with_water_ml),
+    swallow_whole: d.swallow_whole ?? false,
+    time_of_day: d.time_of_day ?? null,
+    fasting_window_before_min: toNumOrNull(d.fasting_window_before_min),
+    fasting_window_after_min: toNumOrNull(d.fasting_window_after_min),
+    interaction_notes: d.interaction_notes ?? null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/drugs/${d.drug_id}/edit`);
+}
+
+export async function deleteOralAdministration(id: string, drugId: string) {
+  await requireEditor();
+  const admin = createAdminSupabaseClient();
+  await admin.from('drug_oral_administration').delete().eq('id', id);
+  revalidatePath(`/admin/drugs/${drugId}/edit`);
+}
+
+// ── AI: draft PIP extension fields (preview → approve flow) ─
+
+import type { GeneratedPipExtensions } from '@/lib/ai/drug-content-generator';
+import type { Json } from '@/types/database';
+
+export type PipDraftDedup = {
+  pk: { half_life_will_fill: boolean; tmax_will_fill: boolean; duration_will_fill: boolean };
+  warnings_duplicate: boolean[];
+  missed_dose_rules_duplicate: boolean[];
+  injection_sites_duplicate: boolean[];
+  side_effect_windows_duplicate: boolean[];
+};
+
+export type PipDraftResult = {
+  drug_id: string;
+  draft: GeneratedPipExtensions;
+  dedup: PipDraftDedup;
+};
+
+async function loadDedup(drugId: string, draft: GeneratedPipExtensions): Promise<PipDraftDedup> {
+  const admin = createAdminSupabaseClient();
+  const [current, ws, md, sites, sew] = await Promise.all([
+    admin.from('peptides').select('half_life_hours, tmax_hours, duration_of_action_hours').eq('id', drugId).single(),
+    admin.from('drug_warnings').select('title').eq('drug_id', drugId),
+    admin.from('drug_missed_dose_rules').select('instruction').eq('drug_id', drugId),
+    admin.from('drug_injection_sites').select('site').eq('drug_id', drugId),
+    admin.from('drug_side_effect_windows').select('effect').eq('drug_id', drugId),
+  ]);
+
+  const warningTitles = new Set((ws.data ?? []).map((w) => w.title.toLowerCase()));
+  const mdInstructions = new Set((md.data ?? []).map((r) => r.instruction.toLowerCase()));
+  const existingSites = new Set((sites.data ?? []).map((s) => s.site));
+  const existingWindows = new Set((sew.data ?? []).map((w) => w.effect.toLowerCase()));
+
+  return {
+    pk: {
+      half_life_will_fill: current.data?.half_life_hours == null && draft.pharmacokinetics.half_life_hours != null,
+      tmax_will_fill: current.data?.tmax_hours == null && draft.pharmacokinetics.tmax_hours != null,
+      duration_will_fill: current.data?.duration_of_action_hours == null && draft.pharmacokinetics.duration_of_action_hours != null,
+    },
+    warnings_duplicate: draft.warnings.map((w) => warningTitles.has(w.title.toLowerCase())),
+    missed_dose_rules_duplicate: draft.missed_dose_rules.map((r) => mdInstructions.has(r.instruction.toLowerCase())),
+    injection_sites_duplicate: draft.injection_sites.map((s) => existingSites.has(s.site)),
+    side_effect_windows_duplicate: draft.side_effect_windows.map((w) => existingWindows.has(w.effect.toLowerCase())),
+  };
+}
+
+export async function draftPipExtensionsAction(drugId: string): Promise<PipDraftResult> {
+  await requireEditor();
+  const admin = createAdminSupabaseClient();
+
+  const { data: drug } = await admin
+    .from('peptides')
+    .select('name, generic_name, drug_class, administration_route, typical_dosing_schedule, short_description, mechanism_summary, contraindications, pharmacokinetics')
+    .eq('id', drugId)
+    .single();
+  if (!drug) throw new Error('Drug not found');
+
+  const { data: sources } = await admin
+    .from('drug_sources')
+    .select('url')
+    .eq('drug_id', drugId)
+    .not('url', 'is', null);
+
+  const pkNotes =
+    drug.pharmacokinetics && typeof drug.pharmacokinetics === 'object' && !Array.isArray(drug.pharmacokinetics)
+      ? Object.entries(drug.pharmacokinetics as Record<string, unknown>)
+          .filter(([, v]) => typeof v === 'string' && v)
+          .map(([k, v]) => `${k}: ${v as string}`)
+          .join(' | ')
+      : null;
+
+  const { generateDrugPipExtensions } = await import('@/lib/ai/drug-content-generator');
+  const draft = await generateDrugPipExtensions({
+    name: drug.name,
+    generic_name: drug.generic_name,
+    drug_class: drug.drug_class,
+    administration_route: drug.administration_route,
+    typical_dosing_schedule: drug.typical_dosing_schedule,
+    short_description: drug.short_description,
+    mechanism_summary: drug.mechanism_summary,
+    contraindications: drug.contraindications,
+    pharmacokinetics_notes: pkNotes,
+    source_urls: (sources ?? []).map((s) => s.url).filter((u): u is string => !!u),
+  });
+
+  const dedup = await loadDedup(drugId, draft);
+
+  return { drug_id: drugId, draft, dedup };
+}
+
+export type BatchPipResult = {
+  drug_id: string;
+  slug: string;
+  name: string;
+  status: 'ok' | 'skipped' | 'error';
+  inserted?: {
+    pk_fields_filled: number;
+    warnings: number;
+    missed_dose_rules: number;
+    injection_sites: number;
+    side_effect_windows: number;
+    oral_administration: number;
+  };
+  error?: string;
+};
+
+export async function batchPipExtensionsAction(opts: { dryRun: boolean; publishedOnly: boolean }) {
+  const { supabase } = await requireEditor();
+  const admin = createAdminSupabaseClient();
+
+  let q = admin
+    .from('peptides')
+    .select('id, slug, name, publication_status')
+    .order('name', { ascending: true });
+  if (opts.publishedOnly) q = q.eq('publication_status', 'published');
+
+  const { data: drugs } = await q;
+  const results: BatchPipResult[] = [];
+
+  for (const drug of drugs ?? []) {
+    try {
+      const draftResult = await draftPipExtensionsAction(drug.id);
+      const d = draftResult.dedup;
+      const wouldInsert = {
+        pk_fields_filled:
+          (d.pk.half_life_will_fill ? 1 : 0) +
+          (d.pk.tmax_will_fill ? 1 : 0) +
+          (d.pk.duration_will_fill ? 1 : 0),
+        warnings: d.warnings_duplicate.filter((b) => !b).length,
+        missed_dose_rules: d.missed_dose_rules_duplicate.filter((b) => !b).length,
+        injection_sites: d.injection_sites_duplicate.filter((b) => !b).length,
+        side_effect_windows: d.side_effect_windows_duplicate.filter((b) => !b).length,
+        oral_administration: draftResult.draft.oral_administration.length,
+      };
+      const total = Object.values(wouldInsert).reduce((a, b) => a + b, 0);
+
+      if (total === 0) {
+        results.push({ drug_id: drug.id, slug: drug.slug, name: drug.name, status: 'skipped', inserted: wouldInsert });
+        continue;
+      }
+
+      if (opts.dryRun) {
+        results.push({ drug_id: drug.id, slug: drug.slug, name: drug.name, status: 'ok', inserted: wouldInsert });
+      } else {
+        const accepted = await acceptPipExtensionsDraftAction(drug.id, draftResult.draft);
+        results.push({ drug_id: drug.id, slug: drug.slug, name: drug.name, status: 'ok', inserted: accepted.inserted });
+      }
+    } catch (e) {
+      results.push({
+        drug_id: drug.id, slug: drug.slug, name: drug.name,
+        status: 'error', error: (e as Error).message,
+      });
+    }
+  }
+
+  if (!opts.dryRun) {
+    await writeAuditLog(supabase, {
+      action: 'drug.pip_extensions_batch_accepted',
+      entity_type: 'drug',
+      entity_id: null,
+      meta: { results: results as unknown as Json },
+    });
+    revalidatePath('/admin/drugs/coverage');
+  }
+
+  return results;
+}
+
+export async function acceptPipExtensionsDraftAction(drugId: string, draft: GeneratedPipExtensions) {
+  const { supabase } = await requireEditor();
+  const admin = createAdminSupabaseClient();
+
+  // Re-run dedup at insert time — preview state may be stale.
+  const dedup = await loadDedup(drugId, draft);
+
+  // 1. Numeric PK
+  const pkPatch: Record<string, number> = {};
+  if (dedup.pk.half_life_will_fill && draft.pharmacokinetics.half_life_hours != null) {
+    pkPatch.half_life_hours = draft.pharmacokinetics.half_life_hours;
+  }
+  if (dedup.pk.tmax_will_fill && draft.pharmacokinetics.tmax_hours != null) {
+    pkPatch.tmax_hours = draft.pharmacokinetics.tmax_hours;
+  }
+  if (dedup.pk.duration_will_fill && draft.pharmacokinetics.duration_of_action_hours != null) {
+    pkPatch.duration_of_action_hours = draft.pharmacokinetics.duration_of_action_hours;
+  }
+  if (Object.keys(pkPatch).length > 0) {
+    await admin.from('peptides').update({ ...pkPatch, updated_at: new Date().toISOString() }).eq('id', drugId);
+  }
+
+  const newWarnings = draft.warnings
+    .map((w, i) => ({ w, i }))
+    .filter(({ i }) => !dedup.warnings_duplicate[i])
+    .map(({ w, i }) => ({
+      drug_id: drugId, severity: w.severity, title: w.title, body: w.body,
+      is_red_flag: w.is_red_flag, ordinal: 100 + i,
+    }));
+  if (newWarnings.length > 0) await admin.from('drug_warnings').insert(newWarnings);
+
+  const newMd = draft.missed_dose_rules
+    .map((r, i) => ({ r, i }))
+    .filter(({ i }) => !dedup.missed_dose_rules_duplicate[i])
+    .map(({ r, i }) => ({
+      drug_id: drugId, formulation: r.formulation, max_delay_hours: r.max_delay_hours,
+      instruction: r.instruction, restart_guidance: r.restart_guidance, ordinal: 100 + i,
+    }));
+  if (newMd.length > 0) await admin.from('drug_missed_dose_rules').insert(newMd);
+
+  const newSites = draft.injection_sites
+    .map((s, i) => ({ s, i }))
+    .filter(({ i }) => !dedup.injection_sites_duplicate[i])
+    .map(({ s, i }) => ({
+      drug_id: drugId, site: s.site, preferred: s.preferred,
+      rotation_guidance: s.rotation_guidance, avoid_notes: s.avoid_notes, ordinal: i,
+    }));
+  if (newSites.length > 0) await admin.from('drug_injection_sites').insert(newSites);
+
+  const { data: drugSideEffects } = await admin.from('side_effects').select('id, effect').eq('peptide_id', drugId);
+  const sideEffectLookup = new Map(
+    (drugSideEffects ?? []).map((se) => [se.effect.toLowerCase(), se.id] as const),
+  );
+  const newWindows = draft.side_effect_windows
+    .map((w, i) => ({ w, i }))
+    .filter(({ i }) => !dedup.side_effect_windows_duplicate[i])
+    .map(({ w, i }) => ({
+      drug_id: drugId,
+      side_effect_id: sideEffectLookup.get(w.effect.toLowerCase()) ?? null,
+      effect: w.effect,
+      onset_hours_min: w.onset_hours_min, onset_hours_max: w.onset_hours_max,
+      peak_hours_min: w.peak_hours_min, peak_hours_max: w.peak_hours_max,
+      resolution_days_typical: w.resolution_days_typical, notes: w.notes,
+      ordinal: 100 + i,
+    }));
+  if (newWindows.length > 0) await admin.from('drug_side_effect_windows').insert(newWindows);
+
+  const newOral = draft.oral_administration.map((o, i) => ({
+    drug_id: drugId,
+    formulation: o.formulation,
+    with_water_ml: o.with_water_ml,
+    swallow_whole: o.swallow_whole,
+    time_of_day: o.time_of_day,
+    fasting_window_before_min: o.fasting_window_before_min,
+    fasting_window_after_min: o.fasting_window_after_min,
+    interaction_notes: o.interaction_notes,
+    ordinal: i,
+  }));
+  if (newOral.length > 0) await admin.from('drug_oral_administration').insert(newOral);
+
+  await writeAuditLog(supabase, { action: 'drug.pip_extensions_accepted', entity_type: 'drug', entity_id: drugId });
+  revalidatePath(`/admin/drugs/${drugId}/edit`);
+
+  return {
+    inserted: {
+      pk_fields_filled: Object.keys(pkPatch).length,
+      warnings: newWarnings.length,
+      missed_dose_rules: newMd.length,
+      injection_sites: newSites.length,
+      side_effect_windows: newWindows.length,
+      oral_administration: newOral.length,
+    },
+  };
+}
