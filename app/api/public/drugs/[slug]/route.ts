@@ -48,6 +48,9 @@ export async function GET(
     doseEscalationPhases,
     formulationStorage,
     sideEffectThresholds,
+    sideEffectWindows,
+    injectionSites,
+    oralAdministration,
   ] = await Promise.all([
     admin
       .from('drug_expectations')
@@ -94,7 +97,7 @@ export async function GET(
       .order('ordinal', { ascending: true }),
     admin
       .from('drug_warnings')
-      .select('id, severity, title, body, source_id, ordinal')
+      .select('id, severity, title, body, is_red_flag, source_id, ordinal')
       .eq('drug_id', drug.id)
       .order('ordinal', { ascending: true }),
     admin
@@ -127,6 +130,25 @@ export async function GET(
       .select('id, side_effect_id, effect, threshold, action, action_label, source_id, ordinal')
       .eq('drug_id', drug.id)
       .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_side_effect_windows')
+      .select(
+        'id, side_effect_id, effect, onset_hours_min, onset_hours_max, peak_hours_min, peak_hours_max, resolution_days_typical, notes, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_injection_sites')
+      .select('id, site, preferred, rotation_guidance, avoid_notes, source_id, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_oral_administration')
+      .select(
+        'id, formulation, with_water_ml, swallow_whole, time_of_day, fasting_window_before_min, fasting_window_after_min, interaction_notes, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal', { ascending: true }),
   ]);
 
   return NextResponse.json(
@@ -153,12 +175,19 @@ export async function GET(
           interactions: drug.drug_interactions,
           storage_handling: drug.storage_handling,
           pharmacokinetics: drug.pharmacokinetics,
+          half_life_hours: drug.half_life_hours,
+          tmax_hours: drug.tmax_hours,
+          duration_of_action_hours: drug.duration_of_action_hours,
           warnings: warnings.data ?? [],
+          red_flag_symptoms: (warnings.data ?? []).filter((w) => w.is_red_flag),
           missed_dose_rules: missedDoseRules.data ?? [],
           approved_indications: approvedIndications.data ?? [],
           dose_escalation_phases: doseEscalationPhases.data ?? [],
           storage: formulationStorage.data ?? [],
           side_effect_thresholds: sideEffectThresholds.data ?? [],
+          side_effect_windows: sideEffectWindows.data ?? [],
+          approved_injection_sites: injectionSites.data ?? [],
+          oral_administration: oralAdministration.data ?? [],
           sources: sources.data ?? [],
         },
         expectations: expectations.data ?? [],

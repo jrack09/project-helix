@@ -83,12 +83,53 @@ components:
     DrugWarning:
       type: object
       properties:
-        id:        { type: string, format: uuid }
-        severity:  { type: string, enum: [info, caution, urgent, boxed_warning] }
-        title:     { type: string }
-        body:      { type: string }
-        source_id: { type: string, format: uuid, nullable: true }
-        ordinal:   { type: integer }
+        id:          { type: string, format: uuid }
+        severity:    { type: string, enum: [info, caution, urgent, boxed_warning] }
+        title:       { type: string }
+        body:        { type: string }
+        is_red_flag: { type: boolean, description: "True if this warning describes a red-flag symptom requiring urgent escalation." }
+        source_id:   { type: string, format: uuid, nullable: true }
+        ordinal:     { type: integer }
+
+    SideEffectWindow:
+      type: object
+      properties:
+        id:                      { type: string, format: uuid }
+        side_effect_id:          { type: string, format: uuid, nullable: true }
+        effect:                  { type: string }
+        onset_hours_min:         { type: number, nullable: true }
+        onset_hours_max:         { type: number, nullable: true }
+        peak_hours_min:          { type: number, nullable: true }
+        peak_hours_max:          { type: number, nullable: true }
+        resolution_days_typical: { type: number, nullable: true }
+        notes:                   { type: string, nullable: true }
+        source_id:               { type: string, format: uuid, nullable: true }
+        ordinal:                 { type: integer }
+
+    InjectionSite:
+      type: object
+      properties:
+        id:                { type: string, format: uuid }
+        site:              { type: string, enum: [abdomen, thigh, upper_arm, buttock, other] }
+        preferred:         { type: boolean }
+        rotation_guidance: { type: string, nullable: true }
+        avoid_notes:       { type: string, nullable: true }
+        source_id:         { type: string, format: uuid, nullable: true }
+        ordinal:           { type: integer }
+
+    OralAdministration:
+      type: object
+      properties:
+        id:                        { type: string, format: uuid }
+        formulation:               { type: string }
+        with_water_ml:             { type: integer, nullable: true }
+        swallow_whole:             { type: boolean }
+        time_of_day:               { type: string, nullable: true, example: "first thing in the morning" }
+        fasting_window_before_min: { type: integer, nullable: true, description: "Required fasting minutes before dose." }
+        fasting_window_after_min:  { type: integer, nullable: true, description: "Required fasting minutes after dose." }
+        interaction_notes:         { type: string, nullable: true }
+        source_id:                 { type: string, format: uuid, nullable: true }
+        ordinal:                   { type: integer }
 
     MissedDoseRule:
       type: object
@@ -173,13 +214,24 @@ components:
         pharmacokinetics:
           type: object
           additionalProperties: true
-        warnings:               { type: array, items: { $ref: '#/components/schemas/DrugWarning' } }
-        missed_dose_rules:      { type: array, items: { $ref: '#/components/schemas/MissedDoseRule' } }
-        approved_indications:   { type: array, items: { $ref: '#/components/schemas/ApprovedIndication' } }
-        dose_escalation_phases: { type: array, items: { $ref: '#/components/schemas/DoseEscalationPhase' } }
-        storage:                { type: array, items: { $ref: '#/components/schemas/FormulationStorage' } }
-        side_effect_thresholds: { type: array, items: { $ref: '#/components/schemas/SideEffectThreshold' } }
-        sources:                { type: array, items: { $ref: '#/components/schemas/DrugSource' } }
+          description: Free-text PK summary. Use the numeric *_hours fields for machine-readable values.
+        half_life_hours:          { type: number, nullable: true }
+        tmax_hours:               { type: number, nullable: true }
+        duration_of_action_hours: { type: number, nullable: true }
+        warnings:                  { type: array, items: { $ref: '#/components/schemas/DrugWarning' } }
+        red_flag_symptoms:
+          type: array
+          description: Subset of warnings where is_red_flag = true. Convenience surface for urgent escalation copy.
+          items: { $ref: '#/components/schemas/DrugWarning' }
+        missed_dose_rules:         { type: array, items: { $ref: '#/components/schemas/MissedDoseRule' } }
+        approved_indications:      { type: array, items: { $ref: '#/components/schemas/ApprovedIndication' } }
+        dose_escalation_phases:    { type: array, items: { $ref: '#/components/schemas/DoseEscalationPhase' } }
+        storage:                   { type: array, items: { $ref: '#/components/schemas/FormulationStorage' } }
+        side_effect_thresholds:    { type: array, items: { $ref: '#/components/schemas/SideEffectThreshold' } }
+        side_effect_windows:       { type: array, items: { $ref: '#/components/schemas/SideEffectWindow' } }
+        approved_injection_sites:  { type: array, items: { $ref: '#/components/schemas/InjectionSite' } }
+        oral_administration:       { type: array, items: { $ref: '#/components/schemas/OralAdministration' } }
+        sources:                   { type: array, items: { $ref: '#/components/schemas/DrugSource' } }
 
     Expectation:
       type: object

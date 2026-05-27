@@ -69,6 +69,9 @@ export type Database = {
           drug_interactions: Json;
           storage_handling: string | null;
           pharmacokinetics: Json;
+          half_life_hours: number | null;
+          tmax_hours: number | null;
+          duration_of_action_hours: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -95,6 +98,9 @@ export type Database = {
           drug_interactions?: Json;
           storage_handling?: string | null;
           pharmacokinetics?: Json;
+          half_life_hours?: number | null;
+          tmax_hours?: number | null;
+          duration_of_action_hours?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -228,6 +234,7 @@ export type Database = {
           severity: DrugWarningSeverity;
           title: string;
           body: string;
+          is_red_flag: boolean;
           source_id: string | null;
           ordinal: number;
           created_at: string;
@@ -239,6 +246,7 @@ export type Database = {
           severity: DrugWarningSeverity;
           title: string;
           body: string;
+          is_red_flag?: boolean;
           source_id?: string | null;
           ordinal?: number;
           created_at?: string;
@@ -409,6 +417,104 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['drug_side_effect_thresholds']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_side_effect_windows: {
+        Row: {
+          id: string;
+          drug_id: string;
+          side_effect_id: string | null;
+          effect: string;
+          onset_hours_min: number | null;
+          onset_hours_max: number | null;
+          peak_hours_min: number | null;
+          peak_hours_max: number | null;
+          resolution_days_typical: number | null;
+          notes: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          side_effect_id?: string | null;
+          effect: string;
+          onset_hours_min?: number | null;
+          onset_hours_max?: number | null;
+          peak_hours_min?: number | null;
+          peak_hours_max?: number | null;
+          resolution_days_typical?: number | null;
+          notes?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_side_effect_windows']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_injection_sites: {
+        Row: {
+          id: string;
+          drug_id: string;
+          site: 'abdomen' | 'thigh' | 'upper_arm' | 'buttock' | 'other';
+          preferred: boolean;
+          rotation_guidance: string | null;
+          avoid_notes: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          site: 'abdomen' | 'thigh' | 'upper_arm' | 'buttock' | 'other';
+          preferred?: boolean;
+          rotation_guidance?: string | null;
+          avoid_notes?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_injection_sites']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_oral_administration: {
+        Row: {
+          id: string;
+          drug_id: string;
+          formulation: string;
+          with_water_ml: number | null;
+          swallow_whole: boolean;
+          time_of_day: string | null;
+          fasting_window_before_min: number | null;
+          fasting_window_after_min: number | null;
+          interaction_notes: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          formulation: string;
+          with_water_ml?: number | null;
+          swallow_whole?: boolean;
+          time_of_day?: string | null;
+          fasting_window_before_min?: number | null;
+          fasting_window_after_min?: number | null;
+          interaction_notes?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_oral_administration']['Insert']>;
         Relationships: EmptyRel;
       };
       drug_expectations: {
