@@ -40,7 +40,7 @@ type DrugInput = {
 export async function generateDrugContent(drug: DrugInput): Promise<GeneratedDrugContent> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 8096,
+    max_tokens: 16000,
     tools: [
       {
         name: 'set_drug_content',
@@ -137,6 +137,10 @@ STRICTLY NEVER use: cure, guarantee results, treat (as a medical claim), reverse
     ],
   });
 
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error('AI response was truncated (hit max_tokens) before completing — retry this drug.');
+  }
+
   const toolUse = response.content.find((c) => c.type === 'tool_use');
   if (!toolUse || toolUse.type !== 'tool_use') {
     throw new Error('AI did not return a valid structured response');
@@ -215,7 +219,7 @@ type PipDrugInput = DrugInput & {
 export async function generateDrugPipExtensions(drug: PipDrugInput): Promise<GeneratedPipExtensions> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 8096,
+    max_tokens: 16000,
     tools: [
       {
         name: 'set_pip_extensions',
@@ -345,6 +349,10 @@ STRICTLY NEVER use: cure, guarantee, treat (as a medical claim), reverse diabete
       },
     ],
   });
+
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error('AI response was truncated (hit max_tokens) before completing — retry this drug.');
+  }
 
   const toolUse = response.content.find((c) => c.type === 'tool_use');
   if (!toolUse || toolUse.type !== 'tool_use') {
