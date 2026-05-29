@@ -15,9 +15,10 @@ export default function BatchProtocolPage() {
           Use <strong>Dry run</strong> first to preview what each drug would receive — then <strong>Apply</strong>.
         </p>
         <p className="text-xs text-muted-foreground mt-2">
-          Takes ~15-20 seconds per drug. The page will lock while running. <strong>Apply clean-replaces</strong>{' '}
-          each drug&apos;s existing protocol blocks, so review afterwards. Errors on individual drugs do not abort
-          the batch — they&apos;re reported in the results.
+          Runs one drug per request (~15-20s each) with live progress, so it won&apos;t hit serverless timeouts.
+          Keep this tab open until it finishes. <strong>Apply clean-replaces</strong> each drug&apos;s existing
+          protocol blocks, so review afterwards. Errors on individual drugs do not abort the batch — they&apos;re
+          reported in the results.
         </p>
       </div>
 

@@ -1580,3 +1580,47 @@ export async function batchProtocolExtensionsAction(opts: { dryRun: boolean; pub
 
   return results;
 }
+
+// Client-driven batch: the page fetches the target list, then calls the
+// per-drug action below once per drug. Each request handles a single drug
+// (~15-20s) so it never approaches the serverless function timeout, and
+// the UI can show live progress.
+
+export type ProtocolBatchTarget = { drug_id: string; slug: string; name: string };
+
+export async function listProtocolBatchTargetsAction(opts: { publishedOnly: boolean }): Promise<ProtocolBatchTarget[]> {
+  await requireEditor();
+  const admin = createAdminSupabaseClient();
+
+  let q = admin
+    .from('peptides')
+    .select('id, slug, name, publication_status')
+    .order('name', { ascending: true });
+  if (opts.publishedOnly) q = q.eq('publication_status', 'published');
+
+  const { data } = await q;
+  return (data ?? []).map((d) => ({ drug_id: d.id, slug: d.slug, name: d.name }));
+}
+
+export async function runProtocolForDrugAction(
+  target: ProtocolBatchTarget,
+  opts: { dryRun: boolean },
+): Promise<BatchProtocolResult> {
+  await requireEditor();
+  try {
+    const { draft } = await draftProtocolExtensionsAction(target.drug_id);
+    const counts = countProtocolDraft(draft);
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+
+    if (total === 0) {
+      return { ...target, status: 'skipped', inserted: counts };
+    }
+    if (opts.dryRun) {
+      return { ...target, status: 'ok', inserted: counts };
+    }
+    const accepted = await acceptProtocolExtensionsDraftAction(target.drug_id, draft);
+    return { ...target, status: 'ok', inserted: accepted.inserted };
+  } catch (e) {
+    return { ...target, status: 'error', error: (e as Error).message };
+  }
+}

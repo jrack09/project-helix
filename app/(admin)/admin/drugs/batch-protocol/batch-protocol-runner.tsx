@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { batchProtocolExtensionsAction, type BatchProtocolResult } from '../../actions';
+import {
+  listProtocolBatchTargetsAction,
+  runProtocolForDrugAction,
+  type BatchProtocolResult,
+} from '../../actions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,43 +24,56 @@ const EMPTY_TOTALS = {
 };
 
 export function BatchProtocolRunner() {
-  const [pending, startTransition] = useTransition();
-  const [results, setResults] = useState<BatchProtocolResult[] | null>(null);
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<BatchProtocolResult[]>([]);
   const [mode, setMode] = useState<RunMode | null>(null);
   const [publishedOnly, setPublishedOnly] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null);
 
-  const run = (chosen: RunMode) => {
+  const run = async (chosen: RunMode) => {
     if (chosen === 'apply' && !window.confirm('Apply clean-replaces every drug’s existing protocol companion data. Continue?')) {
       return;
     }
     setError(null);
-    setResults(null);
+    setResults([]);
+    setProgress(null);
     setMode(chosen);
-    startTransition(async () => {
-      try {
-        const r = await batchProtocolExtensionsAction({ dryRun: chosen === 'dry', publishedOnly });
-        setResults(r);
-      } catch (e) {
-        setError((e as Error).message);
+    setRunning(true);
+    try {
+      // One request fetches the list; then one request PER DRUG so no single
+      // request runs long enough to hit the serverless function timeout.
+      const targets = await listProtocolBatchTargetsAction({ publishedOnly });
+      if (targets.length === 0) {
+        setError('No drugs matched. Uncheck "published only" if your catalogue is still in draft.');
+        return;
       }
-    });
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        setProgress({ done: i, total: targets.length, current: t.name });
+        const r = await runProtocolForDrugAction(t, { dryRun: chosen === 'dry' });
+        setResults((prev) => [...prev, r]);
+      }
+      setProgress({ done: targets.length, total: targets.length, current: '' });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRunning(false);
+    }
   };
 
-  const totals = results
-    ? results.reduce((acc, r) => {
-        if (!r.inserted) return acc;
-        return {
-          protocol_timeline: acc.protocol_timeline + r.inserted.protocol_timeline,
-          dose_cycle_profile: acc.dose_cycle_profile + r.inserted.dose_cycle_profile,
-          symptom_playbooks: acc.symptom_playbooks + r.inserted.symptom_playbooks,
-          food_tolerance_rules: acc.food_tolerance_rules + r.inserted.food_tolerance_rules,
-          checkin_protocol: acc.checkin_protocol + r.inserted.checkin_protocol,
-          red_flag_rules: acc.red_flag_rules + r.inserted.red_flag_rules,
-          clinician_report_template: acc.clinician_report_template + r.inserted.clinician_report_template,
-        };
-      }, { ...EMPTY_TOTALS })
-    : null;
+  const totals = results.reduce((acc, r) => {
+    if (!r.inserted) return acc;
+    return {
+      protocol_timeline: acc.protocol_timeline + r.inserted.protocol_timeline,
+      dose_cycle_profile: acc.dose_cycle_profile + r.inserted.dose_cycle_profile,
+      symptom_playbooks: acc.symptom_playbooks + r.inserted.symptom_playbooks,
+      food_tolerance_rules: acc.food_tolerance_rules + r.inserted.food_tolerance_rules,
+      checkin_protocol: acc.checkin_protocol + r.inserted.checkin_protocol,
+      red_flag_rules: acc.red_flag_rules + r.inserted.red_flag_rules,
+      clinician_report_template: acc.clinician_report_template + r.inserted.clinician_report_template,
+    };
+  }, { ...EMPTY_TOTALS });
 
   return (
     <div className="space-y-4">
@@ -66,32 +83,33 @@ export function BatchProtocolRunner() {
             type="checkbox"
             checked={publishedOnly}
             onChange={(e) => setPublishedOnly(e.target.checked)}
-            disabled={pending}
+            disabled={running}
           />
           Only run on published drugs (skip drafts and archived)
         </label>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => run('dry')} disabled={pending}>
-            {pending && mode === 'dry' ? 'Dry running…' : '🔍 Dry run'}
+          <Button variant="outline" onClick={() => run('dry')} disabled={running}>
+            {running && mode === 'dry' ? 'Dry running…' : '🔍 Dry run'}
           </Button>
-          <Button onClick={() => run('apply')} disabled={pending}>
-            {pending && mode === 'apply' ? 'Applying…' : '✦ Apply across catalogue'}
+          <Button onClick={() => run('apply')} disabled={running}>
+            {running && mode === 'apply' ? 'Applying…' : '✦ Apply across catalogue'}
           </Button>
         </div>
-        {pending && (
+        {running && progress && (
           <p className="text-xs text-muted-foreground flex items-center gap-2">
             <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
-            Running — each drug takes ~15-20s. Do not close this tab.
+            {progress.done}/{progress.total} — {progress.current ? `processing ${progress.current}…` : 'finishing…'}{' '}
+            Each drug takes ~15-20s. You can leave this tab open.
           </p>
         )}
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
 
-      {results && totals && (
+      {results.length > 0 && (
         <div className="space-y-3">
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="text-sm font-semibold">
-              {mode === 'dry' ? 'Dry run summary' : 'Apply summary'} ·{' '}
+              {mode === 'dry' ? 'Dry run' : 'Apply'} {running ? 'in progress' : 'complete'} ·{' '}
               <span className="text-muted-foreground font-normal">
                 {results.filter((r) => r.status === 'ok').length} ok ·{' '}
                 {results.filter((r) => r.status === 'skipped').length} skipped ·{' '}
@@ -99,7 +117,7 @@ export function BatchProtocolRunner() {
               </span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {mode === 'dry' ? 'Would write' : 'Wrote'} across the catalogue: timeline{' '}
+              {mode === 'dry' ? 'Would write' : 'Wrote'} so far: timeline{' '}
               <strong>{totals.protocol_timeline}</strong> · dose cycle{' '}
               <strong>{totals.dose_cycle_profile}</strong> · playbooks{' '}
               <strong>{totals.symptom_playbooks}</strong> · food rules{' '}
@@ -108,6 +126,11 @@ export function BatchProtocolRunner() {
               <strong>{totals.red_flag_rules}</strong> · clinician{' '}
               <strong>{totals.clinician_report_template}</strong>.
             </p>
+            {!running && mode === 'apply' && (
+              <p className="text-xs text-muted-foreground mt-2">
+                <Link href="/admin/drugs/coverage" className="underline">View coverage matrix →</Link>
+              </p>
+            )}
           </div>
 
           <div className="rounded-lg border border-border overflow-hidden">
