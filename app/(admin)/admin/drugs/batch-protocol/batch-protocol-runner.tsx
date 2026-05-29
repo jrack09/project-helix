@@ -40,26 +40,43 @@ export function BatchProtocolRunner() {
     setProgress(null);
     setMode(chosen);
     setRunning(true);
+    let targets: Awaited<ReturnType<typeof listProtocolBatchTargetsAction>>;
     try {
       // One request fetches the list; then one request PER DRUG so no single
       // request runs long enough to hit the serverless function timeout.
-      const targets = await listProtocolBatchTargetsAction({ publishedOnly });
-      if (targets.length === 0) {
-        setError('No drugs matched. Uncheck "published only" if your catalogue is still in draft.');
-        return;
-      }
-      for (let i = 0; i < targets.length; i++) {
-        const t = targets[i];
-        setProgress({ done: i, total: targets.length, current: t.name });
-        const r = await runProtocolForDrugAction(t, { dryRun: chosen === 'dry' });
-        setResults((prev) => [...prev, r]);
-      }
-      setProgress({ done: targets.length, total: targets.length, current: '' });
+      targets = await listProtocolBatchTargetsAction({ publishedOnly });
     } catch (e) {
-      setError((e as Error).message);
-    } finally {
+      setError(`Could not load the drug list: ${(e as Error).message}`);
       setRunning(false);
+      return;
     }
+    if (targets.length === 0) {
+      setError('No drugs matched. Uncheck "published only" if your catalogue is still in draft.');
+      setRunning(false);
+      return;
+    }
+
+    // Each drug is isolated: a network-level failure (e.g. "Failed to fetch"
+    // from a single request timing out) is recorded as an error row and the
+    // loop carries on, so one bad drug never aborts the whole batch.
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      setProgress({ done: i, total: targets.length, current: t.name });
+      let r: BatchProtocolResult;
+      try {
+        r = await runProtocolForDrugAction(t, { dryRun: chosen === 'dry' });
+      } catch {
+        // Request itself failed (timeout / network) — retry once, then give up on this drug only.
+        try {
+          r = await runProtocolForDrugAction(t, { dryRun: chosen === 'dry' });
+        } catch (e2) {
+          r = { ...t, status: 'error', error: `Request failed (timeout or network): ${(e2 as Error).message}` };
+        }
+      }
+      setResults((prev) => [...prev, r]);
+    }
+    setProgress({ done: targets.length, total: targets.length, current: '' });
+    setRunning(false);
   };
 
   const totals = results.reduce((acc, r) => {
