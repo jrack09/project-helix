@@ -462,7 +462,7 @@ export async function generateDrugProtocolExtensions(
   const strArray = { type: 'array', items: { type: 'string' } } as const;
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 8096,
+    max_tokens: 16000,
     tools: [
       {
         name: 'set_protocol_extensions',
@@ -638,10 +638,39 @@ STRICTLY NEVER use: cure, guarantee, treat (as a medical claim), reverse diabete
     ],
   });
 
+  // A truncated response leaves the tool input with missing/partial fields,
+  // which used to crash downstream on `.length`. Surface it clearly instead.
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error(
+      'AI response was truncated (hit max_tokens) before completing this drug — retry it, or it has too much source context for one pass.',
+    );
+  }
+
   const toolUse = response.content.find((c) => c.type === 'tool_use');
   if (!toolUse || toolUse.type !== 'tool_use') {
     throw new Error('AI did not return a valid structured response');
   }
 
-  return toolUse.input as GeneratedProtocolExtensions;
+  // Normalise: never trust that every array/object the schema marked
+  // "required" actually came back — coerce to safe empty defaults so callers
+  // can always read `.length` / iterate without crashing.
+  const raw = (toolUse.input ?? {}) as Partial<GeneratedProtocolExtensions>;
+  return {
+    protocol_timeline: raw.protocol_timeline ?? [],
+    dose_cycle_profile: raw.dose_cycle_profile ?? null,
+    symptom_playbooks: (raw.symptom_playbooks ?? []).map((pb) => ({
+      symptom: pb.symptom,
+      bands: pb.bands ?? [],
+    })),
+    food_tolerance_rules: raw.food_tolerance_rules ?? [],
+    checkin_protocol: raw.checkin_protocol
+      ? {
+          cadence: raw.checkin_protocol.cadence,
+          notes: raw.checkin_protocol.notes ?? null,
+          questions: raw.checkin_protocol.questions ?? [],
+        }
+      : null,
+    red_flag_rules: raw.red_flag_rules ?? [],
+    clinician_report_template: raw.clinician_report_template ?? null,
+  };
 }

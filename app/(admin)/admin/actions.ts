@@ -1038,9 +1038,10 @@ export async function acceptProtocolExtensionsDraftAction(
       })
       .select('id')
       .single();
-    if (inserted && pb.bands.length > 0) {
+    const bands = pb.bands ?? [];
+    if (inserted && bands.length > 0) {
       await admin.from('drug_symptom_playbook_bands').insert(
-        pb.bands.map((b, j) => ({
+        bands.map((b, j) => ({
           playbook_id: inserted.id,
           min_score: b.min_score,
           max_score: b.max_score,
@@ -1621,6 +1622,9 @@ export async function runProtocolForDrugAction(
     const accepted = await acceptProtocolExtensionsDraftAction(target.drug_id, draft);
     return { ...target, status: 'ok', inserted: accepted.inserted };
   } catch (e) {
+    // Log the full stack server-side (visible in Vercel runtime logs) — the
+    // result row only carries the message.
+    console.error(`[batch-protocol] ${target.slug} (${target.drug_id}) failed:`, e);
     return { ...target, status: 'error', error: (e as Error).message };
   }
 }

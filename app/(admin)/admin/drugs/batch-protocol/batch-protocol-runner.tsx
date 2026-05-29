@@ -170,7 +170,7 @@ export function BatchProtocolRunner() {
                     <TableCell className="text-center text-sm">{r.inserted?.checkin_protocol ?? '—'}</TableCell>
                     <TableCell className="text-center text-sm">{r.inserted?.red_flag_rules ?? '—'}</TableCell>
                     <TableCell className="text-center text-sm">{r.inserted?.clinician_report_template ?? '—'}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{r.error ?? ''}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-xs truncate" title={r.error ?? ''}>{r.error ?? ''}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
