@@ -85,6 +85,13 @@ export default async function DrugDetailPage({ params }: Props) {
     sideEffectWindowsRes,
     injectionSitesRes,
     oralAdministrationRes,
+    protocolTimelineRes,
+    doseCycleProfileRes,
+    symptomPlaybooksRes,
+    foodToleranceRulesRes,
+    checkinProtocolRes,
+    redFlagRulesRes,
+    clinicianReportRes,
   ] = await Promise.all([
     supabase
       .from('drug_expectations')
@@ -194,6 +201,50 @@ export default async function DrugDetailPage({ params }: Props) {
       )
       .eq('drug_id', drug.id)
       .order('ordinal'),
+    supabase
+      .from('drug_protocol_timeline')
+      .select(
+        'id, protocol_label, week_start, week_end, phase_title, typical_dose_mg, cadence_days, expected_changes, common_adjustments, user_focus, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('protocol_label')
+      .order('ordinal'),
+    supabase
+      .from('drug_dose_cycle_profile')
+      .select(
+        'onset_hours, peak_effect_hours_min, peak_effect_hours_max, appetite_effect_window_min, appetite_effect_window_max, nausea_risk_window_min, nausea_risk_window_max, constipation_risk_window_min, constipation_risk_window_max, coverage_fades_after_hours, notes',
+      )
+      .eq('drug_id', drug.id)
+      .maybeSingle(),
+    supabase
+      .from('drug_symptom_playbooks')
+      .select(
+        'id, symptom, ordinal, drug_symptom_playbook_bands(id, min_score, max_score, title, nutrition_strategy, hydration_strategy, avoid, escalation, ordinal)',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_food_tolerance_rules')
+      .select('id, context, prefer, "limit", avoid, rationale, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_checkin_protocol')
+      .select(
+        'id, cadence, notes, drug_checkin_questions(id, question_id, label, type, unit, condition, trigger_guidance_from_score, ordinal)',
+      )
+      .eq('drug_id', drug.id)
+      .maybeSingle(),
+    supabase
+      .from('drug_red_flag_rules')
+      .select('id, symptom, action_level, display_copy, related_risks, ordinal')
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_clinician_report_template')
+      .select('key_metrics, relevant_symptoms, medication_context_label')
+      .eq('drug_id', drug.id)
+      .maybeSingle(),
   ]);
 
   const studyIds = (studyLinksRes.data ?? []).map((r) => r.study_id);
@@ -268,6 +319,71 @@ export default async function DrugDetailPage({ params }: Props) {
   const sideEffectWindows = sideEffectWindowsRes.data ?? [];
   const injectionSites = injectionSitesRes.data ?? [];
   const oralAdministration = oralAdministrationRes.data ?? [];
+
+  // ── Protocol companion blocks ──
+  type OrdinalRow = { ordinal: number };
+  const protocolTimeline = protocolTimelineRes.data ?? [];
+  const doseCycleProfile = doseCycleProfileRes.data ?? null;
+  const symptomPlaybooks = (symptomPlaybooksRes.data ?? []).map((pb) => ({
+    ...pb,
+    bands: [...((pb.drug_symptom_playbook_bands as unknown as Array<
+      OrdinalRow & {
+        id: string;
+        min_score: number | null;
+        max_score: number | null;
+        title: string;
+        nutrition_strategy: string[];
+        hydration_strategy: string[];
+        avoid: string[];
+        escalation: string | null;
+      }
+    >) ?? [])].sort((a, b) => a.ordinal - b.ordinal),
+  }));
+  const foodToleranceRules = foodToleranceRulesRes.data ?? [];
+  const checkinProtocol = checkinProtocolRes.data ?? null;
+  const checkinQuestions = checkinProtocol
+    ? [...((checkinProtocol.drug_checkin_questions as unknown as Array<
+        OrdinalRow & {
+          id: string;
+          question_id: string;
+          label: string;
+          type: string;
+          unit: string | null;
+          condition: string | null;
+          trigger_guidance_from_score: number | null;
+        }
+      >) ?? [])].sort((a, b) => a.ordinal - b.ordinal)
+    : [];
+  const redFlagRules = redFlagRulesRes.data ?? [];
+  const clinicianReport = clinicianReportRes.data ?? null;
+  const doseCycleWindows: Array<{ label: string; lo: number | null; hi: number | null }> = doseCycleProfile
+    ? [
+        { label: 'Peak effect', lo: doseCycleProfile.peak_effect_hours_min, hi: doseCycleProfile.peak_effect_hours_max },
+        { label: 'Appetite effect', lo: doseCycleProfile.appetite_effect_window_min, hi: doseCycleProfile.appetite_effect_window_max },
+        { label: 'Nausea risk', lo: doseCycleProfile.nausea_risk_window_min, hi: doseCycleProfile.nausea_risk_window_max },
+        { label: 'Constipation risk', lo: doseCycleProfile.constipation_risk_window_min, hi: doseCycleProfile.constipation_risk_window_max },
+      ].filter((w) => w.lo != null || w.hi != null)
+    : [];
+  const hasJourney = protocolTimeline.length > 0 || (doseCycleProfile && (doseCycleProfile.onset_hours != null || doseCycleWindows.length > 0));
+  const hasCompanion =
+    symptomPlaybooks.length > 0 || foodToleranceRules.length > 0 || checkinQuestions.length > 0 || clinicianReport != null;
+  const FOOD_CONTEXT_LABEL: Record<string, string> = {
+    low_appetite: 'Low appetite',
+    nausea: 'Nausea',
+    constipation: 'Constipation',
+    reflux: 'Reflux',
+    diarrhea: 'Diarrhoea',
+    dose_escalation_week: 'Dose-escalation week',
+    day_before_dose: 'Day before dose',
+    post_dose_peak: 'Post-dose peak',
+    post_dose_nausea_window: 'Post-dose nausea window',
+  };
+  const RED_FLAG_ACTION_LABEL: Record<string, string> = {
+    monitor: 'Monitor',
+    contact_prescriber: 'Contact prescriber',
+    urgent_care: 'Urgent care',
+    emergency: 'Emergency',
+  };
 
   const injectionGuide = injectionGuideRes.data ?? [];
   const injectionByType = (['supply', 'step', 'warning', 'disposal'] as const).reduce(
@@ -410,7 +526,9 @@ export default async function DrugDetailPage({ params }: Props) {
     ...(expectations.length > 0 || sideEffects.length > 0 || lifecycleTips.length > 0
       ? [{ id: 'clinical', label: 'Benefits & side effects' }]
       : []),
+    ...(hasJourney ? [{ id: 'journey', label: 'Your journey' }] : []),
     ...(food.length > 0 || practicalTips.length > 0 ? [{ id: 'guidance', label: 'Nutrition & tips' }] : []),
+    ...(hasCompanion ? [{ id: 'companion', label: 'Daily companion' }] : []),
     ...(drug.contraindications ||
     interactionList.length > 0 ||
     warnings.length > 0 ||
@@ -418,6 +536,7 @@ export default async function DrugDetailPage({ params }: Props) {
     missedDoseRules.length > 0 ||
     formulationStorage.length > 0 ||
     sideEffectThresholds.length > 0 ||
+    redFlagRules.length > 0 ||
     drug.storage_handling
       ? [{ id: 'safety', label: 'Safety & interactions' }]
       : []),
@@ -961,6 +1080,100 @@ export default async function DrugDetailPage({ params }: Props) {
               </ProtocolBlock>
             )}
 
+            {/* ── Your journey (protocol timeline + dose cycle) ── */}
+            {hasJourney && (
+              <ProtocolBlock
+                id="journey"
+                title="Your journey"
+                subtitle="Where you are in a typical protocol, and what one dose cycle looks like. Educational — your prescriber tailors the plan to you."
+              >
+                <div className="space-y-6">
+                  {protocolTimeline.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Protocol timeline
+                      </p>
+                      <ol className="mt-2 space-y-2 border-l-2 border-border pl-4">
+                        {protocolTimeline.map((phase) => (
+                          <li key={phase.id} className="relative">
+                            <span className="absolute -left-[1.4rem] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
+                            <div className="rounded-[--radius] border border-border bg-background p-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold">{phase.phase_title}</p>
+                                <Badge variant="outline">
+                                  Weeks {phase.week_start}{phase.week_end ? `–${phase.week_end}` : '+'}
+                                </Badge>
+                                {phase.typical_dose_mg != null && (
+                                  <Badge variant="outline">{phase.typical_dose_mg} mg</Badge>
+                                )}
+                                {phase.cadence_days != null && (
+                                  <span className="text-xs text-muted-foreground">every {phase.cadence_days}d</span>
+                                )}
+                              </div>
+                              {phase.expected_changes.length > 0 && (
+                                <p className="mt-1.5 text-xs text-muted-foreground">
+                                  <span className="font-medium text-foreground">What to expect: </span>
+                                  {phase.expected_changes.join(', ')}
+                                </p>
+                              )}
+                              {phase.user_focus.length > 0 && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  <span className="font-medium text-foreground">Focus on: </span>
+                                  {phase.user_focus.join(', ')}
+                                </p>
+                              )}
+                              {phase.common_adjustments.length > 0 && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  <span className="font-medium text-foreground">Common adjustments: </span>
+                                  {phase.common_adjustments.join(', ')}
+                                </p>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {doseCycleProfile && (doseCycleProfile.onset_hours != null || doseCycleWindows.length > 0) && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        One dose cycle at a glance
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Population typicals, in hours from your dose — individual experience varies.
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {doseCycleProfile.onset_hours != null && (
+                          <div className="rounded-[--radius] border border-border bg-background px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Onset</p>
+                            <p className="text-sm font-semibold">{doseCycleProfile.onset_hours} h</p>
+                          </div>
+                        )}
+                        {doseCycleWindows.map((w) => (
+                          <div key={w.label} className="rounded-[--radius] border border-border bg-background px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{w.label}</p>
+                            <p className="text-sm font-semibold">
+                              {w.lo != null && w.hi != null && w.lo !== w.hi ? `${w.lo}–${w.hi} h` : `${w.lo ?? w.hi} h`}
+                            </p>
+                          </div>
+                        ))}
+                        {doseCycleProfile.coverage_fades_after_hours != null && (
+                          <div className="rounded-[--radius] border border-border bg-background px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Coverage fades after</p>
+                            <p className="text-sm font-semibold">{doseCycleProfile.coverage_fades_after_hours} h</p>
+                          </div>
+                        )}
+                      </div>
+                      {doseCycleProfile.notes && (
+                        <p className="mt-2 text-xs text-muted-foreground">{doseCycleProfile.notes}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </ProtocolBlock>
+            )}
+
             {/* ── Clinical Benefits & Side Effects ── */}
             {(expectations.length > 0 || sideEffects.length > 0 || lifecycleTips.length > 0) && (
               <ProtocolBlock
@@ -1123,6 +1336,131 @@ export default async function DrugDetailPage({ params }: Props) {
               </ProtocolBlock>
             )}
 
+            {/* ── Daily companion (playbooks, food rules, check-ins, clinician report) ── */}
+            {hasCompanion && (
+              <ProtocolBlock
+                id="companion"
+                title="Daily companion"
+                subtitle="Practical playbooks for managing symptoms, eating around side effects, tracking what matters, and reporting back to your clinician."
+              >
+                <div className="space-y-7">
+                  {symptomPlaybooks.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Symptom playbooks
+                      </p>
+                      <div className="mt-2 space-y-3">
+                        {symptomPlaybooks.map((pb) => (
+                          <div key={pb.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <p className="text-sm font-semibold">{pb.symptom}</p>
+                            <div className="mt-2 space-y-2">
+                              {pb.bands.map((b) => (
+                                <div key={b.id} className="rounded-[--radius] border border-border/70 p-2.5">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-medium">{b.title}</p>
+                                    {(b.min_score != null || b.max_score != null) && (
+                                      <Badge variant="outline">score {b.min_score ?? '?'}–{b.max_score ?? '?'}</Badge>
+                                    )}
+                                  </div>
+                                  {b.nutrition_strategy.length > 0 && (
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      <span className="font-medium text-foreground">Nutrition: </span>{b.nutrition_strategy.join(', ')}
+                                    </p>
+                                  )}
+                                  {b.hydration_strategy.length > 0 && (
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                      <span className="font-medium text-foreground">Hydration: </span>{b.hydration_strategy.join(', ')}
+                                    </p>
+                                  )}
+                                  {b.avoid.length > 0 && (
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                      <span className="font-medium text-foreground">Avoid: </span>{b.avoid.join(', ')}
+                                    </p>
+                                  )}
+                                  {b.escalation && (
+                                    <p className="mt-1 text-xs font-medium text-destructive">⚠ {b.escalation}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {foodToleranceRules.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Food guidance by situation
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {foodToleranceRules.map((r) => (
+                          <div key={r.id} className="rounded-[--radius] border border-border bg-background p-3">
+                            <Badge variant="secondary" className="mb-1.5">{FOOD_CONTEXT_LABEL[r.context] ?? r.context}</Badge>
+                            {r.prefer.length > 0 && (
+                              <p className="text-xs text-muted-foreground"><span className="font-medium text-emerald-600 dark:text-emerald-400">Prefer: </span>{r.prefer.join(', ')}</p>
+                            )}
+                            {r.limit.length > 0 && (
+                              <p className="mt-0.5 text-xs text-muted-foreground"><span className="font-medium text-amber-600 dark:text-amber-400">Limit: </span>{r.limit.join(', ')}</p>
+                            )}
+                            {r.avoid.length > 0 && (
+                              <p className="mt-0.5 text-xs text-muted-foreground"><span className="font-medium text-destructive">Avoid: </span>{r.avoid.join(', ')}</p>
+                            )}
+                            {r.rationale && <p className="mt-1 text-xs text-muted-foreground">{r.rationale}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {checkinProtocol && checkinQuestions.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        What to track
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Suggested check-in cadence: {checkinProtocol.cadence.replace(/_/g, ' ')}.
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {checkinQuestions.map((q) => (
+                          <div key={q.id} className="rounded-[--radius] border border-border bg-background px-3 py-2">
+                            <p className="text-sm font-medium">{q.label}{q.unit ? ` (${q.unit})` : ''}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{q.type.replace(/_/g, ' ')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {clinicianReport && (
+                    <div className="rounded-[--radius] border border-border bg-muted/30 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Take this to your appointment
+                      </p>
+                      {clinicianReport.medication_context_label && (
+                        <p className="mt-1 text-sm">
+                          <span className="font-medium">Medication context: </span>{clinicianReport.medication_context_label}
+                        </p>
+                      )}
+                      {clinicianReport.key_metrics.length > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Key metrics: </span>
+                          {clinicianReport.key_metrics.map((m) => m.replace(/_/g, ' ')).join(', ')}
+                        </p>
+                      )}
+                      {clinicianReport.relevant_symptoms.length > 0 && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Relevant symptoms: </span>
+                          {clinicianReport.relevant_symptoms.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </ProtocolBlock>
+            )}
+
             {/* ── Safety & Interactions ── */}
             {(drug.contraindications ||
               interactionList.length > 0 ||
@@ -1134,6 +1472,7 @@ export default async function DrugDetailPage({ params }: Props) {
               sideEffectWindows.length > 0 ||
               injectionSites.length > 0 ||
               oralAdministration.length > 0 ||
+              redFlagRules.length > 0 ||
               drug.storage_handling) && (
               <ProtocolBlock
                 id="safety"
@@ -1141,12 +1480,21 @@ export default async function DrugDetailPage({ params }: Props) {
                 subtitle="Share this information with your prescriber for personalised care decisions."
               >
                 <div className="space-y-4">
-                  {redFlagWarnings.length > 0 && (
+                  {(redFlagWarnings.length > 0 || redFlagRules.length > 0) && (
                     <div className="rounded-[--radius] border-2 border-destructive/40 bg-destructive/5 p-4">
                       <p className="text-xs font-bold uppercase tracking-wide text-destructive">
                         Red-flag symptoms — seek urgent care
                       </p>
                       <ul className="mt-2 space-y-2">
+                        {redFlagRules.map((rule) => (
+                          <li key={rule.id} className="text-sm">
+                            <span className="font-semibold">{rule.symptom}</span>
+                            <Badge variant="outline" className="ml-2">
+                              {RED_FLAG_ACTION_LABEL[rule.action_level] ?? rule.action_level}
+                            </Badge>
+                            <span className="mt-0.5 block text-muted-foreground">{rule.display_copy}</span>
+                          </li>
+                        ))}
                         {redFlagWarnings.map((flag) => (
                           <li key={flag.id} className="text-sm">
                             <span className="font-semibold">{flag.title}.</span>{' '}

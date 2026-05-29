@@ -231,6 +231,15 @@ components:
         side_effect_windows:       { type: array, items: { $ref: '#/components/schemas/SideEffectWindow' } }
         approved_injection_sites:  { type: array, items: { $ref: '#/components/schemas/InjectionSite' } }
         oral_administration:       { type: array, items: { $ref: '#/components/schemas/OralAdministration' } }
+        dose_cycle_profile:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/DoseCycleProfile' }]
+        symptom_playbooks:         { type: array, items: { $ref: '#/components/schemas/SymptomPlaybook' } }
+        food_tolerance_rules:      { type: array, items: { $ref: '#/components/schemas/FoodToleranceRule' } }
+        red_flag_rules:            { type: array, items: { $ref: '#/components/schemas/RedFlagRule' } }
+        clinician_report_template:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/ClinicianReportTemplate' }]
         sources:                   { type: array, items: { $ref: '#/components/schemas/DrugSource' } }
 
     Expectation:
@@ -330,6 +339,139 @@ components:
           type: string
           nullable: true
 
+    ProtocolTimelinePhase:
+      type: object
+      description: A journey-map phase. Population-typical, educational — not a personal prescription.
+      properties:
+        id:                 { type: string, format: uuid }
+        protocol_label:     { type: string, nullable: true }
+        week_start:         { type: integer }
+        week_end:           { type: integer, nullable: true, description: Null for an open-ended final/maintenance phase. }
+        phase_title:        { type: string }
+        typical_dose_mg:    { type: number, nullable: true }
+        cadence_days:       { type: integer, nullable: true }
+        expected_changes:   { type: array, items: { type: string } }
+        common_adjustments: { type: array, items: { type: string } }
+        user_focus:         { type: array, items: { type: string } }
+        source_id:          { type: string, format: uuid, nullable: true }
+        ordinal:            { type: integer }
+
+    DoseCycleProfile:
+      type: object
+      description: >
+        Consolidated "right now" dose-cycle windows for the current dose interval.
+        Window fields are [min, max] hour pairs (either bound may be null). Merges the
+        numeric PK columns (onset/half-life/coverage) with curated symptom windows.
+      properties:
+        onset_hours:        { type: number, nullable: true }
+        half_life_hours:    { type: number, nullable: true }
+        peak_effect_hours:
+          type: array
+          items: { type: number, nullable: true }
+          minItems: 2
+          maxItems: 2
+        appetite_effect_window_hours:
+          type: array
+          items: { type: number, nullable: true }
+          minItems: 2
+          maxItems: 2
+        nausea_risk_window_hours:
+          type: array
+          items: { type: number, nullable: true }
+          minItems: 2
+          maxItems: 2
+        constipation_risk_window_hours:
+          type: array
+          items: { type: number, nullable: true }
+          minItems: 2
+          maxItems: 2
+        coverage_fades_after_hours: { type: number, nullable: true }
+        notes:                      { type: string, nullable: true }
+        source_id:                  { type: string, format: uuid, nullable: true }
+
+    SymptomPlaybookBand:
+      type: object
+      properties:
+        id:                 { type: string, format: uuid }
+        min_score:          { type: number, nullable: true }
+        max_score:          { type: number, nullable: true }
+        title:              { type: string }
+        nutrition_strategy: { type: array, items: { type: string } }
+        hydration_strategy: { type: array, items: { type: string } }
+        avoid:              { type: array, items: { type: string } }
+        escalation:         { type: string, nullable: true, description: When to seek help; null if no escalation guidance for this band. }
+        ordinal:            { type: integer }
+
+    SymptomPlaybook:
+      type: object
+      properties:
+        id:             { type: string, format: uuid }
+        symptom:        { type: string }
+        side_effect_id: { type: string, format: uuid, nullable: true }
+        source_id:      { type: string, format: uuid, nullable: true }
+        ordinal:        { type: integer }
+        drug_symptom_playbook_bands:
+          type: array
+          items: { $ref: '#/components/schemas/SymptomPlaybookBand' }
+
+    FoodToleranceRule:
+      type: object
+      description: Context-specific food guidance. Distinct from the general food_guidance list.
+      properties:
+        id:        { type: string, format: uuid }
+        context:
+          type: string
+          enum: [low_appetite, nausea, constipation, reflux, diarrhea, dose_escalation_week, day_before_dose, post_dose_peak, post_dose_nausea_window]
+        prefer:    { type: array, items: { type: string } }
+        limit:     { type: array, items: { type: string } }
+        avoid:     { type: array, items: { type: string } }
+        rationale: { type: string, nullable: true }
+        source_id: { type: string, format: uuid, nullable: true }
+        ordinal:   { type: integer }
+
+    CheckinQuestion:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        question_id: { type: string, description: 'Stable client-side key, e.g. nausea_0_10.' }
+        label:       { type: string }
+        type:        { type: string, description: 'e.g. scale_0_10, decimal, integer, boolean, text.' }
+        unit:        { type: string, nullable: true }
+        condition:   { type: string, nullable: true, description: 'Optional gating condition, e.g. if_constipation_or_nausea.' }
+        trigger_guidance_from_score: { type: number, nullable: true }
+        ordinal:     { type: integer }
+
+    CheckinProtocol:
+      type: object
+      properties:
+        id:        { type: string, format: uuid }
+        cadence:   { type: string, description: 'e.g. dose_day_plus_2, daily, weekly.' }
+        notes:     { type: string, nullable: true }
+        source_id: { type: string, format: uuid, nullable: true }
+        drug_checkin_questions:
+          type: array
+          items: { $ref: '#/components/schemas/CheckinQuestion' }
+
+    RedFlagRule:
+      type: object
+      description: Explicit urgent-escalation rule. Educational; complements is_red_flag warnings.
+      properties:
+        id:           { type: string, format: uuid }
+        symptom:      { type: string }
+        action_level: { type: string, enum: [monitor, contact_prescriber, urgent_care, emergency] }
+        display_copy: { type: string }
+        related_risks: { type: array, items: { type: string } }
+        source_id:    { type: string, format: uuid, nullable: true }
+        ordinal:      { type: integer }
+
+    ClinicianReportTemplate:
+      type: object
+      properties:
+        key_metrics:              { type: array, items: { type: string } }
+        relevant_symptoms:        { type: array, items: { type: string } }
+        medication_context_label: { type: string, nullable: true }
+        source_id:                { type: string, format: uuid, nullable: true }
+
     Error:
       type: object
       required: [error]
@@ -400,6 +542,10 @@ paths:
                       injection_guide: { type: array, items: { $ref: '#/components/schemas/InjectionGuideStep' } }
                       reconstitution_guide: { type: array, items: { $ref: '#/components/schemas/ReconstitutionGuide' } }
                       dose_reference: { type: array, items: { $ref: '#/components/schemas/DoseReference' } }
+                      protocol_timeline: { type: array, items: { $ref: '#/components/schemas/ProtocolTimelinePhase' } }
+                      checkin_protocol:
+                        nullable: true
+                        allOf: [{ $ref: '#/components/schemas/CheckinProtocol' }]
                   disclaimer: { $ref: '#/components/schemas/Disclaimer' }
                   meta:       { $ref: '#/components/schemas/Meta' }
         '401':

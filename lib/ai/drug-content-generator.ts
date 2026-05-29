@@ -353,3 +353,295 @@ STRICTLY NEVER use: cure, guarantee, treat (as a medical claim), reverse diabete
 
   return toolUse.input as GeneratedPipExtensions;
 }
+
+// ────────────────────────────────────────────────────────────
+// Protocol-companion fields generator
+// ────────────────────────────────────────────────────────────
+// Separate tool call from set_pip_extensions to stay within
+// max_tokens and keep the two editorial workflows independent.
+
+export type GeneratedProtocolTimelinePhase = {
+  protocol_label: string | null;
+  week_start: number;
+  week_end: number | null;
+  phase_title: string;
+  typical_dose_mg: number | null;
+  cadence_days: number | null;
+  expected_changes: string[];
+  common_adjustments: string[];
+  user_focus: string[];
+};
+
+export type GeneratedDoseCycleProfile = {
+  onset_hours: number | null;
+  peak_effect_hours_min: number | null;
+  peak_effect_hours_max: number | null;
+  appetite_effect_window_min: number | null;
+  appetite_effect_window_max: number | null;
+  nausea_risk_window_min: number | null;
+  nausea_risk_window_max: number | null;
+  constipation_risk_window_min: number | null;
+  constipation_risk_window_max: number | null;
+  coverage_fades_after_hours: number | null;
+  notes: string | null;
+};
+
+export type GeneratedSymptomPlaybookBand = {
+  min_score: number | null;
+  max_score: number | null;
+  title: string;
+  nutrition_strategy: string[];
+  hydration_strategy: string[];
+  avoid: string[];
+  escalation: string | null;
+};
+
+export type GeneratedSymptomPlaybook = {
+  symptom: string;
+  bands: GeneratedSymptomPlaybookBand[];
+};
+
+export type GeneratedFoodToleranceRule = {
+  context:
+    | 'low_appetite'
+    | 'nausea'
+    | 'constipation'
+    | 'reflux'
+    | 'diarrhea'
+    | 'dose_escalation_week'
+    | 'day_before_dose'
+    | 'post_dose_peak'
+    | 'post_dose_nausea_window';
+  prefer: string[];
+  limit: string[];
+  avoid: string[];
+  rationale: string | null;
+};
+
+export type GeneratedCheckinQuestion = {
+  question_id: string;
+  label: string;
+  type: string;
+  unit: string | null;
+  condition: string | null;
+  trigger_guidance_from_score: number | null;
+};
+
+export type GeneratedCheckinProtocol = {
+  cadence: string;
+  notes: string | null;
+  questions: GeneratedCheckinQuestion[];
+};
+
+export type GeneratedRedFlagRule = {
+  symptom: string;
+  action_level: 'monitor' | 'contact_prescriber' | 'urgent_care' | 'emergency';
+  display_copy: string;
+  related_risks: string[];
+};
+
+export type GeneratedClinicianReportTemplate = {
+  key_metrics: string[];
+  relevant_symptoms: string[];
+  medication_context_label: string | null;
+};
+
+export type GeneratedProtocolExtensions = {
+  protocol_timeline: GeneratedProtocolTimelinePhase[];
+  dose_cycle_profile: GeneratedDoseCycleProfile | null;
+  symptom_playbooks: GeneratedSymptomPlaybook[];
+  food_tolerance_rules: GeneratedFoodToleranceRule[];
+  checkin_protocol: GeneratedCheckinProtocol | null;
+  red_flag_rules: GeneratedRedFlagRule[];
+  clinician_report_template: GeneratedClinicianReportTemplate | null;
+};
+
+export async function generateDrugProtocolExtensions(
+  drug: PipDrugInput,
+): Promise<GeneratedProtocolExtensions> {
+  const strArray = { type: 'array', items: { type: 'string' } } as const;
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 8096,
+    tools: [
+      {
+        name: 'set_protocol_extensions',
+        description:
+          'Draft structured protocol-companion fields (journey timeline, dose-cycle windows, symptom playbooks, contextual food rules, check-in protocol, red-flag rules, clinician report template) for a drug, sourced from its prescribing information / trial data.',
+        input_schema: {
+          type: 'object' as const,
+          properties: {
+            protocol_timeline: {
+              type: 'array',
+              description:
+                'Journey-map phases across the standard escalation/maintenance schedule. Educational population typicals, not a prescription. Empty array if no structured schedule exists.',
+              items: {
+                type: 'object',
+                properties: {
+                  protocol_label: { type: ['string', 'null'], description: 'e.g. "Standard escalation"' },
+                  week_start: { type: 'integer' },
+                  week_end: { type: ['integer', 'null'], description: 'Null for an open-ended maintenance phase.' },
+                  phase_title: { type: 'string', description: 'e.g. "Starter phase"' },
+                  typical_dose_mg: { type: ['number', 'null'] },
+                  cadence_days: { type: ['integer', 'null'], description: 'e.g. 7 for weekly, 1 for daily.' },
+                  expected_changes: strArray,
+                  common_adjustments: strArray,
+                  user_focus: strArray,
+                },
+                required: ['protocol_label', 'week_start', 'week_end', 'phase_title', 'typical_dose_mg', 'cadence_days', 'expected_changes', 'common_adjustments', 'user_focus'],
+              },
+            },
+            dose_cycle_profile: {
+              type: ['object', 'null'],
+              description:
+                'Consolidated "right now" windows for one dose interval, in hours from dosing. Null if the substance has no characterised PK/symptom timing.',
+              properties: {
+                onset_hours: { type: ['number', 'null'] },
+                peak_effect_hours_min: { type: ['number', 'null'] },
+                peak_effect_hours_max: { type: ['number', 'null'] },
+                appetite_effect_window_min: { type: ['number', 'null'] },
+                appetite_effect_window_max: { type: ['number', 'null'] },
+                nausea_risk_window_min: { type: ['number', 'null'] },
+                nausea_risk_window_max: { type: ['number', 'null'] },
+                constipation_risk_window_min: { type: ['number', 'null'] },
+                constipation_risk_window_max: { type: ['number', 'null'] },
+                coverage_fades_after_hours: { type: ['number', 'null'] },
+                notes: { type: ['string', 'null'] },
+              },
+              required: ['onset_hours', 'peak_effect_hours_min', 'peak_effect_hours_max', 'appetite_effect_window_min', 'appetite_effect_window_max', 'nausea_risk_window_min', 'nausea_risk_window_max', 'constipation_risk_window_min', 'constipation_risk_window_max', 'coverage_fades_after_hours', 'notes'],
+            },
+            symptom_playbooks: {
+              type: 'array',
+              description: 'Practical, score-banded playbooks for the dominant symptoms (e.g. Nausea, Constipation). Empty array if none apply.',
+              items: {
+                type: 'object',
+                properties: {
+                  symptom: { type: 'string' },
+                  bands: {
+                    type: 'array',
+                    description: 'Severity bands, scored on a 0-10 scale matching the check-in question for this symptom.',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        min_score: { type: ['number', 'null'] },
+                        max_score: { type: ['number', 'null'] },
+                        title: { type: 'string', description: 'e.g. "Mild nausea"' },
+                        nutrition_strategy: strArray,
+                        hydration_strategy: strArray,
+                        avoid: strArray,
+                        escalation: { type: ['string', 'null'], description: 'When to seek help; null if no escalation copy for this band.' },
+                      },
+                      required: ['min_score', 'max_score', 'title', 'nutrition_strategy', 'hydration_strategy', 'avoid', 'escalation'],
+                    },
+                  },
+                },
+                required: ['symptom', 'bands'],
+              },
+            },
+            food_tolerance_rules: {
+              type: 'array',
+              description: 'Context-specific food guidance. Empty array if none apply.',
+              items: {
+                type: 'object',
+                properties: {
+                  context: { type: 'string', enum: ['low_appetite', 'nausea', 'constipation', 'reflux', 'diarrhea', 'dose_escalation_week', 'day_before_dose', 'post_dose_peak', 'post_dose_nausea_window'] },
+                  prefer: strArray,
+                  limit: strArray,
+                  avoid: strArray,
+                  rationale: { type: ['string', 'null'] },
+                },
+                required: ['context', 'prefer', 'limit', 'avoid', 'rationale'],
+              },
+            },
+            checkin_protocol: {
+              type: ['object', 'null'],
+              description: 'What to track and when. Null if no meaningful check-in applies.',
+              properties: {
+                cadence: { type: 'string', description: 'e.g. "dose_day_plus_2", "daily", "weekly".' },
+                notes: { type: ['string', 'null'] },
+                questions: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      question_id: { type: 'string', description: 'stable snake_case key, e.g. "nausea_0_10"' },
+                      label: { type: 'string' },
+                      type: { type: 'string', description: 'e.g. scale_0_10, decimal, integer, boolean, text' },
+                      unit: { type: ['string', 'null'] },
+                      condition: { type: ['string', 'null'], description: 'optional gating, e.g. "if_constipation_or_nausea"' },
+                      trigger_guidance_from_score: { type: ['number', 'null'] },
+                    },
+                    required: ['question_id', 'label', 'type', 'unit', 'condition', 'trigger_guidance_from_score'],
+                  },
+                },
+              },
+              required: ['cadence', 'notes', 'questions'],
+            },
+            red_flag_rules: {
+              type: 'array',
+              description: 'Explicit urgent-escalation rules. Empty array if none apply.',
+              items: {
+                type: 'object',
+                properties: {
+                  symptom: { type: 'string' },
+                  action_level: { type: 'string', enum: ['monitor', 'contact_prescriber', 'urgent_care', 'emergency'] },
+                  display_copy: { type: 'string', description: 'Plain-language copy shown to the user.' },
+                  related_risks: strArray,
+                },
+                required: ['symptom', 'action_level', 'display_copy', 'related_risks'],
+              },
+            },
+            clinician_report_template: {
+              type: ['object', 'null'],
+              description: 'Report-friendly labels for a "take this to your appointment" export. Null if not applicable.',
+              properties: {
+                key_metrics: strArray,
+                relevant_symptoms: strArray,
+                medication_context_label: { type: ['string', 'null'], description: 'e.g. "GLP-1 receptor agonist"' },
+              },
+              required: ['key_metrics', 'relevant_symptoms', 'medication_context_label'],
+            },
+          },
+          required: ['protocol_timeline', 'dose_cycle_profile', 'symptom_playbooks', 'food_tolerance_rules', 'checkin_protocol', 'red_flag_rules', 'clinician_report_template'],
+        },
+      },
+    ],
+    tool_choice: { type: 'tool', name: 'set_protocol_extensions' },
+    messages: [
+      {
+        role: 'user',
+        content: `Draft structured protocol-companion fields for ${drug.name}${drug.generic_name ? ` (${drug.generic_name})` : ''}.
+
+These are STAFF DRAFTS for editorial review against the prescribing information — not final published content. A clinical editor will verify every field before publication.
+
+Drug context:
+- Generic: ${drug.generic_name ?? 'N/A'}
+- Class: ${drug.drug_class ?? 'N/A'}
+- Route: ${drug.administration_route?.replace(/_/g, ' ') ?? 'N/A'}
+- Dosing: ${drug.typical_dosing_schedule ?? 'N/A'}
+- Mechanism notes: ${drug.mechanism_summary ?? 'N/A'}
+- Contraindications notes: ${drug.contraindications ?? 'N/A'}
+- Existing PK prose: ${drug.pharmacokinetics_notes ?? 'N/A'}
+- Source URLs already cited for this drug:
+${drug.source_urls.length > 0 ? drug.source_urls.map((u) => `  - ${u}`).join('\n') : '  (none)'}
+
+Rules:
+- All content is population-typical and EDUCATIONAL — never a personalised prescription. Frame timeline doses as "typical".
+- For unapproved or investigational substances with no human PK characterisation, set dose_cycle_profile to null and keep arrays minimal or empty.
+- Dose-cycle windows are in HOURS from the dose; use [min,max] pairs and null where unknown.
+- Symptom playbook bands must be scored on 0-10 and align with the check-in question for that symptom (e.g. nausea_0_10).
+- Check-in question_id values are stable snake_case keys; reuse standard ones where possible: nausea_0_10, appetite_0_10, energy_0_10, hydration_l, weight_kg, blood_glucose_mmol.
+- Plain language; "your prescriber" not "your doctor"; metric units (mg, mL, kg, L); Australian English spellings where applicable.
+
+STRICTLY NEVER use: cure, guarantee, treat (as a medical claim), reverse diabetes/obesity, diagnose, stop taking, skip a dose, instead of your prescribed medication.`,
+      },
+    ],
+  });
+
+  const toolUse = response.content.find((c) => c.type === 'tool_use');
+  if (!toolUse || toolUse.type !== 'tool_use') {
+    throw new Error('AI did not return a valid structured response');
+  }
+
+  return toolUse.input as GeneratedProtocolExtensions;
+}

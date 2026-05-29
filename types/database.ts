@@ -14,6 +14,17 @@ export type DrugSourceType = 'prescribing_information' | 'regulator' | 'study' |
 export type DrugWarningSeverity = 'info' | 'caution' | 'urgent' | 'boxed_warning';
 export type DrugApprovalStatus = 'approved' | 'off_label' | 'investigational' | 'not_approved';
 export type SideEffectThresholdAction = 'self_monitor' | 'contact_prescriber' | 'urgent_care' | 'emergency';
+export type FoodToleranceContext =
+  | 'low_appetite'
+  | 'nausea'
+  | 'constipation'
+  | 'reflux'
+  | 'diarrhea'
+  | 'dose_escalation_week'
+  | 'day_before_dose'
+  | 'post_dose_peak'
+  | 'post_dose_nausea_window';
+export type RedFlagActionLevel = 'monitor' | 'contact_prescriber' | 'urgent_care' | 'emergency';
 
 /** Empty FK graph — extend when you add PostgREST relationships */
 type EmptyRel = [];
@@ -877,6 +888,274 @@ export type Database = {
           revoked_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['api_keys']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_protocol_timeline: {
+        Row: {
+          id: string;
+          drug_id: string;
+          protocol_label: string | null;
+          week_start: number;
+          week_end: number | null;
+          phase_title: string;
+          typical_dose_mg: number | null;
+          cadence_days: number | null;
+          expected_changes: string[];
+          common_adjustments: string[];
+          user_focus: string[];
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          protocol_label?: string | null;
+          week_start: number;
+          week_end?: number | null;
+          phase_title: string;
+          typical_dose_mg?: number | null;
+          cadence_days?: number | null;
+          expected_changes?: string[];
+          common_adjustments?: string[];
+          user_focus?: string[];
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_protocol_timeline']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_dose_cycle_profile: {
+        Row: {
+          id: string;
+          drug_id: string;
+          onset_hours: number | null;
+          peak_effect_hours_min: number | null;
+          peak_effect_hours_max: number | null;
+          appetite_effect_window_min: number | null;
+          appetite_effect_window_max: number | null;
+          nausea_risk_window_min: number | null;
+          nausea_risk_window_max: number | null;
+          constipation_risk_window_min: number | null;
+          constipation_risk_window_max: number | null;
+          coverage_fades_after_hours: number | null;
+          notes: string | null;
+          source_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          onset_hours?: number | null;
+          peak_effect_hours_min?: number | null;
+          peak_effect_hours_max?: number | null;
+          appetite_effect_window_min?: number | null;
+          appetite_effect_window_max?: number | null;
+          nausea_risk_window_min?: number | null;
+          nausea_risk_window_max?: number | null;
+          constipation_risk_window_min?: number | null;
+          constipation_risk_window_max?: number | null;
+          coverage_fades_after_hours?: number | null;
+          notes?: string | null;
+          source_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_dose_cycle_profile']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_symptom_playbooks: {
+        Row: {
+          id: string;
+          drug_id: string;
+          side_effect_id: string | null;
+          symptom: string;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          side_effect_id?: string | null;
+          symptom: string;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_symptom_playbooks']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_symptom_playbook_bands: {
+        Row: {
+          id: string;
+          playbook_id: string;
+          min_score: number | null;
+          max_score: number | null;
+          title: string;
+          nutrition_strategy: string[];
+          hydration_strategy: string[];
+          avoid: string[];
+          escalation: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          playbook_id: string;
+          min_score?: number | null;
+          max_score?: number | null;
+          title: string;
+          nutrition_strategy?: string[];
+          hydration_strategy?: string[];
+          avoid?: string[];
+          escalation?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_symptom_playbook_bands']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_food_tolerance_rules: {
+        Row: {
+          id: string;
+          drug_id: string;
+          context: FoodToleranceContext;
+          prefer: string[];
+          limit: string[];
+          avoid: string[];
+          rationale: string | null;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          context: FoodToleranceContext;
+          prefer?: string[];
+          limit?: string[];
+          avoid?: string[];
+          rationale?: string | null;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_food_tolerance_rules']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_checkin_protocol: {
+        Row: {
+          id: string;
+          drug_id: string;
+          cadence: string;
+          notes: string | null;
+          source_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          cadence: string;
+          notes?: string | null;
+          source_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_checkin_protocol']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_checkin_questions: {
+        Row: {
+          id: string;
+          protocol_id: string;
+          question_id: string;
+          label: string;
+          type: string;
+          unit: string | null;
+          condition: string | null;
+          trigger_guidance_from_score: number | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          protocol_id: string;
+          question_id: string;
+          label: string;
+          type: string;
+          unit?: string | null;
+          condition?: string | null;
+          trigger_guidance_from_score?: number | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_checkin_questions']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_red_flag_rules: {
+        Row: {
+          id: string;
+          drug_id: string;
+          symptom: string;
+          action_level: RedFlagActionLevel;
+          display_copy: string;
+          related_risks: string[];
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          symptom: string;
+          action_level: RedFlagActionLevel;
+          display_copy: string;
+          related_risks?: string[];
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_red_flag_rules']['Insert']>;
+        Relationships: EmptyRel;
+      };
+      drug_clinician_report_template: {
+        Row: {
+          id: string;
+          drug_id: string;
+          key_metrics: string[];
+          relevant_symptoms: string[];
+          medication_context_label: string | null;
+          source_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          key_metrics?: string[];
+          relevant_symptoms?: string[];
+          medication_context_label?: string | null;
+          source_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_clinician_report_template']['Insert']>;
         Relationships: EmptyRel;
       };
     };

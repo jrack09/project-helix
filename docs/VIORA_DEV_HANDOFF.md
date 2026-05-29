@@ -102,6 +102,27 @@ Confirm and implement:
 - Optional arrays (`food_guidance`, `tips`, `side_effects`) can be empty; UI should degrade gracefully.
   The same applies to all `clinical_profile` arrays.
 
+Protocol companion blocks (v1 expansion — see the Integration Guide for full shapes):
+
+- `protocol_timeline` (top-level) powers the "where you are in the journey" view. Match the
+  user's current week against `week_start`/`week_end` (a `null` `week_end` = open-ended
+  maintenance phase). Educational template, not a prescription.
+- `clinical_profile.dose_cycle_profile` (object, nullable) powers "right now" insights. Window
+  fields are `[min, max]` hour pairs; either bound may be `null`. Falls back to PK columns when
+  no curated row exists.
+- `clinical_profile.symptom_playbooks` connects symptoms to the nutrition engine. Pick the band
+  whose `[min_score, max_score]` contains the latest check-in score for that symptom.
+- `clinical_profile.food_tolerance_rules` is keyed by `context` (e.g. `post_dose_nausea_window`,
+  `low_appetite`); choose rules matching the user's current state.
+- `checkin_protocol` (top-level, nullable) defines what to track and when. `cadence` drives
+  scheduling; each question's `question_id` is a stable key; `trigger_guidance_from_score`
+  flags when to surface guidance; `condition` gates optional questions.
+- `clinical_profile.red_flag_rules` drives urgent surfacing. `action_level` escalates
+  `monitor` → `contact_prescriber` → `urgent_care` → `emergency`. Complements
+  `red_flag_symptoms`.
+- `clinical_profile.clinician_report_template` (object, nullable) drives the "take this to your
+  appointment" export — `key_metrics`/`relevant_symptoms`/`medication_context_label`.
+
 Suggested biomarker-to-UI mapping:
 
 - `weight_kg` -> Weight tracker
@@ -120,6 +141,8 @@ Complete all checks before production enablement:
 - [ ] `GET /drugs` returns `200` with `data.drugs.length > 0`
 - [ ] `GET /drugs/semaglutide-wegovy` returns full companion payload
 - [ ] `GET /drugs/semaglutide-wegovy` includes `clinical_profile.warnings`, `missed_dose_rules`, `approved_indications`, `dose_escalation_phases`, `storage`, `side_effect_thresholds`, and `sources`
+- [ ] `GET /drugs/semaglutide-wegovy` includes `protocol_timeline`, `checkin_protocol`, and `clinical_profile.{dose_cycle_profile, symptom_playbooks, food_tolerance_rules, red_flag_rules, clinician_report_template}`
+- [ ] `GET /drugs/bpc-157` returns empty arrays / `null` objects for the protocol companion blocks without error
 - [ ] `GET /drugs/semaglutide-wegovy/expectations?week=1` returns week-specific data
 - [ ] `GET /drugs/semaglutide-wegovy/tracker-hints` returns biomarker hints
 - [ ] `disclaimer.text` is visibly rendered in companion UI

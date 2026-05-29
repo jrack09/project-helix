@@ -194,6 +194,93 @@ Full companion profile for a single drug.
 
 All `clinical_profile` arrays are optional from a rendering perspective and may be empty while PIP fills content across drugs. Viora should display warnings, missed-dose rules, thresholds, and citations as general information only, alongside the required disclaimer.
 
+#### Protocol Companion blocks (v1 expansion)
+
+The `/drugs/:slug` payload also carries the seven "protocol companion" blocks. Two are
+top-level (`protocol_timeline`, `checkin_protocol`); the rest live under `clinical_profile`.
+All are **population-typical and educational** — never a personal prescription — and must be
+rendered alongside the disclaimer. **Null/empty semantics:** arrays may be `[]` and the two
+1:1 objects (`dose_cycle_profile`, `clinician_report_template`, `checkin_protocol`) may be
+`null` for drugs PIP has not yet curated (e.g. investigational peptides such as `bpc-157`).
+Treat absent data as "not available", not an error.
+
+```json
+{
+  "protocol_timeline": [
+    {
+      "id": "uuid", "protocol_label": "Standard escalation",
+      "week_start": 1, "week_end": 4, "phase_title": "Starter phase",
+      "typical_dose_mg": 0.25, "cadence_days": 7,
+      "expected_changes": ["early appetite reduction", "possible nausea"],
+      "common_adjustments": ["hold escalation if symptoms are difficult"],
+      "user_focus": ["protein consistency", "hydration", "small meals"],
+      "source_id": "uuid", "ordinal": 0
+    }
+  ],
+  "checkin_protocol": {
+    "id": "uuid", "cadence": "dose_day_plus_2", "notes": "...", "source_id": "uuid",
+    "drug_checkin_questions": [
+      { "id": "uuid", "question_id": "nausea_0_10", "label": "Nausea", "type": "scale_0_10",
+        "unit": null, "condition": null, "trigger_guidance_from_score": 7, "ordinal": 0 },
+      { "id": "uuid", "question_id": "hydration_l", "label": "Hydration", "type": "decimal",
+        "unit": "L", "condition": "if_constipation_or_nausea", "trigger_guidance_from_score": null, "ordinal": 2 }
+    ]
+  },
+  "clinical_profile": {
+    "dose_cycle_profile": {
+      "onset_hours": 8, "half_life_hours": 168,
+      "peak_effect_hours": [24, 72],
+      "appetite_effect_window_hours": [12, 96],
+      "nausea_risk_window_hours": [12, 72],
+      "constipation_risk_window_hours": [48, 168],
+      "coverage_fades_after_hours": 120, "notes": "...", "source_id": "uuid"
+    },
+    "symptom_playbooks": [
+      {
+        "id": "uuid", "symptom": "Nausea", "side_effect_id": "uuid", "source_id": "uuid", "ordinal": 0,
+        "drug_symptom_playbook_bands": [
+          { "id": "uuid", "min_score": 1, "max_score": 3, "title": "Mild nausea",
+            "nutrition_strategy": ["smaller meals", "lower-fat foods"],
+            "hydration_strategy": ["sip fluids steadily"],
+            "avoid": ["large greasy meals"], "escalation": null, "ordinal": 0 }
+        ]
+      }
+    ],
+    "food_tolerance_rules": [
+      { "id": "uuid", "context": "post_dose_nausea_window",
+        "prefer": ["lean protein", "soups", "Greek yoghurt"],
+        "limit": ["large portions"], "avoid": ["fried foods", "high-fat meals"],
+        "rationale": "Lower-fat smaller meals may be easier during nausea windows.",
+        "source_id": "uuid", "ordinal": 0 }
+    ],
+    "red_flag_rules": [
+      { "id": "uuid", "symptom": "Severe abdominal pain", "action_level": "urgent_care",
+        "display_copy": "Seek urgent medical care for severe or persistent abdominal pain.",
+        "related_risks": ["pancreatitis"], "source_id": "uuid", "ordinal": 0 }
+    ],
+    "clinician_report_template": {
+      "key_metrics": ["dose_adherence", "weight_change", "nausea_trend", "missed_doses"],
+      "relevant_symptoms": ["nausea", "constipation", "reflux", "fatigue"],
+      "medication_context_label": "GLP-1 receptor agonist", "source_id": "uuid"
+    }
+  }
+}
+```
+
+Field notes:
+- **`dose_cycle_profile`** window fields are `[min, max]` hour pairs; either bound may be
+  `null`. `onset_hours`/`half_life_hours`/`coverage_fades_after_hours` fall back to the
+  numeric PK columns on the drug when a curated profile row is absent.
+- **`symptom_playbook` bands** are score-banded (`min_score`/`max_score` against the matching
+  check-in question, e.g. `nausea_0_10`); `escalation` is `null` when no escalation copy
+  applies to that band.
+- **`food_tolerance_rules.context`** is one of: `low_appetite`, `nausea`, `constipation`,
+  `reflux`, `diarrhea`, `dose_escalation_week`, `day_before_dose`, `post_dose_peak`,
+  `post_dose_nausea_window`.
+- **`red_flag_rules.action_level`** escalates `monitor` → `contact_prescriber` →
+  `urgent_care` → `emergency`. These complement (do not replace) the existing
+  `clinical_profile.red_flag_symptoms` warning surface.
+
 ---
 
 ### GET /drugs/:slug/expectations

@@ -37,6 +37,9 @@ export default async function AdminDrugsPage({
           <Button asChild variant="outline">
             <Link href="/admin/drugs/batch-pip">Batch PIP</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin/drugs/batch-protocol">Batch protocol</Link>
+          </Button>
           <Button asChild>
             <Link href="/admin/drugs/new">+ New drug</Link>
           </Button>

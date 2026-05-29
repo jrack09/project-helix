@@ -23,6 +23,10 @@ import {
   addOralAdministration, deleteOralAdministration,
   publishDrug, archiveDrug,
 } from '../../../actions';
+import {
+  ProtocolTimelineTab, DoseCycleTab, SymptomPlaybooksTab, FoodToleranceTab,
+  CheckinTab, RedFlagRulesTab, ClinicianReportTab,
+} from './protocol-tabs';
 
 type Drug = Database['public']['Tables']['peptides']['Row'];
 type Expectation = Database['public']['Tables']['drug_expectations']['Row'];
@@ -32,6 +36,15 @@ type Warning = Database['public']['Tables']['drug_warnings']['Row'];
 type InjectionSite = Database['public']['Tables']['drug_injection_sites']['Row'];
 type SideEffectWindow = Database['public']['Tables']['drug_side_effect_windows']['Row'];
 type OralAdministration = Database['public']['Tables']['drug_oral_administration']['Row'];
+type TimelinePhase = Database['public']['Tables']['drug_protocol_timeline']['Row'];
+type DoseCycle = Database['public']['Tables']['drug_dose_cycle_profile']['Row'];
+type Playbook = Database['public']['Tables']['drug_symptom_playbooks']['Row'];
+type PlaybookBand = Database['public']['Tables']['drug_symptom_playbook_bands']['Row'];
+type FoodRule = Database['public']['Tables']['drug_food_tolerance_rules']['Row'];
+type CheckinProtocol = Database['public']['Tables']['drug_checkin_protocol']['Row'];
+type CheckinQuestion = Database['public']['Tables']['drug_checkin_questions']['Row'];
+type RedFlagRule = Database['public']['Tables']['drug_red_flag_rules']['Row'];
+type ClinicianReport = Database['public']['Tables']['drug_clinician_report_template']['Row'];
 type SideEffectLite = { id: string; effect: string };
 
 type Props = {
@@ -44,6 +57,15 @@ type Props = {
   sideEffectWindows: SideEffectWindow[];
   oralAdministration: OralAdministration[];
   sideEffects: SideEffectLite[];
+  protocolTimeline: TimelinePhase[];
+  doseCycleProfile: DoseCycle | null;
+  symptomPlaybooks: Playbook[];
+  symptomPlaybookBands: PlaybookBand[];
+  foodToleranceRules: FoodRule[];
+  checkinProtocol: CheckinProtocol | null;
+  checkinQuestions: CheckinQuestion[];
+  redFlagRules: RedFlagRule[];
+  clinicianReportTemplate: ClinicianReport | null;
 };
 
 function FormError({ error }: { error?: string | null }) {
@@ -779,10 +801,12 @@ function OralAdministrationTab({
 export function DrugEditTabs({
   drug, expectations, foodGuidance, tips,
   warnings, injectionSites, sideEffectWindows, oralAdministration, sideEffects,
+  protocolTimeline, doseCycleProfile, symptomPlaybooks, symptomPlaybookBands,
+  foodToleranceRules, checkinProtocol, checkinQuestions, redFlagRules, clinicianReportTemplate,
 }: Props) {
   return (
     <Tabs defaultValue="overview">
-      <TabsList className="mb-6">
+      <TabsList className="mb-6 flex-wrap h-auto">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="clinical">Clinical PK</TabsTrigger>
         <TabsTrigger value="warnings">
@@ -806,6 +830,27 @@ export function DrugEditTabs({
         <TabsTrigger value="tips">
           Tips {tips.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{tips.length}</Badge>}
         </TabsTrigger>
+        <TabsTrigger value="timeline">
+          Timeline {protocolTimeline.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{protocolTimeline.length}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="dose-cycle">
+          Dose cycle {doseCycleProfile && <Badge variant="secondary" className="ml-1.5 text-xs">✓</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="playbooks">
+          Playbooks {symptomPlaybooks.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{symptomPlaybooks.length}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="food-rules">
+          Food rules {foodToleranceRules.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{foodToleranceRules.length}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="checkins">
+          Check-ins {checkinQuestions.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{checkinQuestions.length}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="red-flags">
+          Red flags {redFlagRules.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{redFlagRules.length}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="clinician">
+          Clinician {clinicianReportTemplate && <Badge variant="secondary" className="ml-1.5 text-xs">✓</Badge>}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview"><OverviewTab drug={drug} /></TabsContent>
@@ -817,6 +862,13 @@ export function DrugEditTabs({
       <TabsContent value="expectations"><ExpectationsTab drugId={drug.id} expectations={expectations} /></TabsContent>
       <TabsContent value="food"><FoodGuidanceTab drugId={drug.id} foodGuidance={foodGuidance} /></TabsContent>
       <TabsContent value="tips"><TipsTab drugId={drug.id} tips={tips} /></TabsContent>
+      <TabsContent value="timeline"><ProtocolTimelineTab drugId={drug.id} phases={protocolTimeline} /></TabsContent>
+      <TabsContent value="dose-cycle"><DoseCycleTab drugId={drug.id} profile={doseCycleProfile} /></TabsContent>
+      <TabsContent value="playbooks"><SymptomPlaybooksTab drugId={drug.id} playbooks={symptomPlaybooks} bands={symptomPlaybookBands} sideEffects={sideEffects} /></TabsContent>
+      <TabsContent value="food-rules"><FoodToleranceTab drugId={drug.id} rules={foodToleranceRules} /></TabsContent>
+      <TabsContent value="checkins"><CheckinTab drugId={drug.id} protocol={checkinProtocol} questions={checkinQuestions} /></TabsContent>
+      <TabsContent value="red-flags"><RedFlagRulesTab drugId={drug.id} rules={redFlagRules} /></TabsContent>
+      <TabsContent value="clinician"><ClinicianReportTab drugId={drug.id} template={clinicianReportTemplate} /></TabsContent>
     </Tabs>
   );
 }
