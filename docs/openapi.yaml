@@ -472,6 +472,51 @@ components:
         medication_context_label: { type: string, nullable: true }
         source_id:                { type: string, format: uuid, nullable: true }
 
+    UnifiedSource:
+      type: object
+      required: [id, label, source_type, ordinal]
+      properties:
+        id:               { type: string, description: 'drug_sources UUID or synthetic study-{uuid}.' }
+        source_type:
+          type: string
+          description: DrugSourceType or study-derived type (human_rct, review, etc.).
+        label:            { type: string }
+        url:              { type: string, nullable: true }
+        region:           { type: string, nullable: true }
+        authority:        { type: string, nullable: true }
+        citation_text:    { type: string, nullable: true }
+        retrieved_at:     { type: string, format: date, nullable: true }
+        doi:              { type: string, nullable: true }
+        pubmed_id:        { type: string, nullable: true }
+        study_type:       { type: string, nullable: true }
+        sample_size:      { type: integer, nullable: true }
+        publication_date: { type: string, format: date, nullable: true }
+        ordinal:          { type: integer }
+
+    EvidenceClaim:
+      type: object
+      required: [id, field, text, source_ids, evidence_level, display_tier]
+      properties:
+        id:             { type: string }
+        field:          { type: string, description: 'JSON path matching companion payload, e.g. clinical_profile.warnings[0].' }
+        text:           { type: string }
+        source_ids:     { type: array, items: { type: string } }
+        evidence_level:
+          type: string
+          enum: [anecdotal, editorial, study_backed, regulatory]
+        display_tier:
+          type: string
+          enum: [research_backed, regulatory, educational, investigational_context]
+
+    AssembledEvidence:
+      type: object
+      required: [slug, sources, claims]
+      properties:
+        slug:           { type: string }
+        evidence_score: { type: integer, nullable: true, minimum: 0, maximum: 100 }
+        sources:        { type: array, items: { $ref: '#/components/schemas/UnifiedSource' } }
+        claims:         { type: array, items: { $ref: '#/components/schemas/EvidenceClaim' } }
+
     Error:
       type: object
       required: [error]
@@ -610,3 +655,39 @@ paths:
                       tracker_hints: { $ref: '#/components/schemas/TrackerHints' }
                   disclaimer: { $ref: '#/components/schemas/Disclaimer' }
                   meta:       { $ref: '#/components/schemas/Meta' }
+
+  /drugs/{slug}/evidence:
+    get:
+      summary: Unified sources and citation claims for a drug
+      description: |
+        Returns normalized sources (drug_sources merged with studies) and flattened
+        claims with evidence_level and display_tier for citation-backed UI.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      evidence: { $ref: '#/components/schemas/AssembledEvidence' }
+                  disclaimer: { $ref: '#/components/schemas/Disclaimer' }
+                  meta:       { $ref: '#/components/schemas/Meta' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Drug not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }

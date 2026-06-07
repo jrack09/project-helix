@@ -326,6 +326,120 @@ Returns which biomarkers Viora should prompt for this drug and at what cadence.
 
 ---
 
+### GET /drugs/:slug/evidence
+
+Returns normalized **`sources[]`** and **`claims[]`** for citation-backed UI. Use alongside
+`GET /drugs/:slug` — the main profile is unchanged; this endpoint adds study merge and
+per-field attribution.
+
+**Response `data`**
+```json
+{
+  "evidence": {
+    "slug": "semaglutide-wegovy",
+    "evidence_score": 85,
+    "sources": [
+      {
+        "id": "uuid",
+        "source_type": "study",
+        "label": "STEP 1 trial",
+        "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2032183",
+        "citation_text": "Wilding JPH et al. Once-weekly semaglutide in adults with overweight or obesity. N Engl J Med. 2021.",
+        "doi": "10.1056/NEJMoa2032183",
+        "pubmed_id": null,
+        "study_type": "human",
+        "sample_size": 1961,
+        "publication_date": "2021-03-18",
+        "region": "Global",
+        "authority": "NEJM",
+        "retrieved_at": "2026-04-27",
+        "ordinal": 3
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-outcome-uuid",
+        "field": "studies[study-uuid].outcomes[outcome-uuid]",
+        "text": "Mean body-weight change was −14.9% with semaglutide versus −2.4% with placebo.",
+        "source_ids": ["uuid"],
+        "evidence_level": "study_backed",
+        "display_tier": "research_backed"
+      },
+      {
+        "id": "claim-warning-uuid",
+        "field": "clinical_profile.warnings[0]",
+        "text": "Thyroid C-cell tumour warning: Do not use Wegovy if...",
+        "source_ids": ["uuid"],
+        "evidence_level": "regulatory",
+        "display_tier": "regulatory"
+      },
+      {
+        "id": "claim-food-uuid",
+        "field": "food_guidance[0]",
+        "text": "Lean protein at every meal: Supports lean muscle mass...",
+        "source_ids": [],
+        "evidence_level": "editorial",
+        "display_tier": "educational"
+      }
+    ]
+  }
+}
+```
+
+**`display_tier` rendering**
+
+| Value | Viora UI |
+|---|---|
+| `research_backed` | Citation chip(s); link via `doi` → `https://doi.org/{doi}` or `url` |
+| `regulatory` | Prescribing information / regulator badge |
+| `investigational_context` | Prominent investigational banner + source link |
+| `educational` | Subtle “General guidance” label; no citation required |
+
+**Integration steps**
+
+1. **Fetch** (server-side only):
+   ```typescript
+   const res = await fetch(`${PIP_BASE}/drugs/${slug}/evidence`, {
+     headers: { Authorization: `Bearer ${PIP_API_KEY}` },
+     next: { revalidate: 3600 },
+   });
+   const { data } = await res.json();
+   const { sources, claims } = data.evidence;
+   ```
+
+2. **Index claims** by `field` for joining to companion blocks:
+   ```typescript
+   const claimsByField = new Map<string, typeof claims>();
+   for (const c of claims) {
+     const list = claimsByField.get(c.field) ?? [];
+     list.push(c);
+     claimsByField.set(c.field, list);
+   }
+   const sourcesById = new Map(sources.map((s) => [s.id, s]));
+   ```
+
+3. **Resolve citations** for a block at index `i`:
+   ```typescript
+   const claim = claimsByField.get(`clinical_profile.warnings[${i}]`)?.[0];
+   const citations = (claim?.source_ids ?? [])
+     .map((id) => sourcesById.get(id))
+     .filter(Boolean);
+   ```
+
+4. **Fallback**: blocks without matching claims (expectations, tips, mechanism) remain
+   uncited — treat as educational until PIP adds `source_id` on those tables.
+
+5. **Cache**: same 1h TTL as full profile; invalidate when `meta.last_updated` changes.
+
+**Source ID notes**
+
+- IDs are usually `drug_sources` UUIDs.
+- Studies not merged into `drug_sources` use synthetic IDs: `study-{studies.id}`.
+- Join `claim.source_ids` to `sources[]` by `id` — do not rely on `clinical_profile.sources`
+  alone when using the evidence endpoint.
+
+---
+
 ## Error Responses
 
 | Status | Body | Cause |
@@ -348,6 +462,7 @@ Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 Suggested Viora strategy:
 - Drug list: SWR with 1h TTL, revalidate in background
 - Drug full profile: SWR with 1h TTL
+- Drug evidence: SWR with 1h TTL (same invalidation as profile)
 - Expectations for current week: SWR with 24h TTL (content changes weekly at most)
 - Tracker hints: cache forever per drug slug (invalidate on app update)
 
@@ -378,5 +493,6 @@ The disclaimer version (`disclaimer.version`) can be stored locally; if it chang
 - [ ] At least Wegovy companion content authored and published in PIP admin
 - [ ] Viora hits `GET /drugs` — receives >0 results
 - [ ] Viora hits `GET /drugs/semaglutide-wegovy` — receives full companion payload
+- [ ] Viora hits `GET /drugs/semaglutide-wegovy/evidence` — receives sources + claims
 - [ ] Disclaimer text rendered on companion screen
 - [ ] `GET /drugs/semaglutide-wegovy/tracker-hints` — Viora enables correct tracking inputs
