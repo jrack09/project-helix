@@ -139,7 +139,9 @@ export default async function DrugDetailPage({ params }: Props) {
       .order('ordinal'),
     supabase
       .from('drug_dose_reference')
-      .select('id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, ordinal')
+      .select(
+        'id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, vial_size_mg, concentration_mg_per_ml, source_id, ordinal',
+      )
       .eq('drug_id', drug.id)
       .order('ordinal'),
     supabase
@@ -798,6 +800,8 @@ export default async function DrugDetailPage({ params }: Props) {
                   {/* Dose protocol tables — Standard, Advanced, Concentration reference */}
                   {doseProtocolLabels.map((label) => {
                     const config = PROTOCOL_SECTION[label];
+                    const protocolRows = doseByProtocol[label];
+                    const firstRow = protocolRows[0];
                     return (
                       <div key={label} className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -805,6 +809,18 @@ export default async function DrugDetailPage({ params }: Props) {
                         </p>
                         {config?.intro && (
                           <p className="text-sm text-muted-foreground">{config.intro}</p>
+                        )}
+                        {(firstRow?.vial_size_mg != null || firstRow?.concentration_mg_per_ml != null) && (
+                          <div className="flex flex-wrap gap-2">
+                            {firstRow.vial_size_mg != null && (
+                              <Badge variant="outline">{firstRow.vial_size_mg} mg vial</Badge>
+                            )}
+                            {firstRow.concentration_mg_per_ml != null && (
+                              <Badge variant="outline">
+                                {firstRow.concentration_mg_per_ml} mg/mL
+                              </Badge>
+                            )}
+                          </div>
                         )}
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
@@ -822,7 +838,7 @@ export default async function DrugDetailPage({ params }: Props) {
                               </tr>
                             </thead>
                             <tbody>
-                              {doseByProtocol[label].map((row) => (
+                              {protocolRows.map((row) => (
                                 <tr key={row.id} className="border-b border-border/50">
                                   <td className="py-1.5 pr-4">{row.phase_label ?? `${row.dose_mg} mg`}</td>
                                   <td className="py-1.5 pr-4 text-right tabular-nums">{row.units_u100}</td>

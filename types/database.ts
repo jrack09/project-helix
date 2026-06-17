@@ -187,6 +187,9 @@ export type Database = {
           dose_mg: number;
           units_u100: number;
           volume_ml: number;
+          vial_size_mg: number | null;
+          concentration_mg_per_ml: number | null;
+          source_id: string | null;
           ordinal: number;
           created_at: string;
           updated_at: string;
@@ -199,6 +202,9 @@ export type Database = {
           dose_mg: number;
           units_u100: number;
           volume_ml: number;
+          vial_size_mg?: number | null;
+          concentration_mg_per_ml?: number | null;
+          source_id?: string | null;
           ordinal?: number;
           created_at?: string;
           updated_at?: string;

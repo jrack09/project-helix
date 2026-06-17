@@ -322,6 +322,9 @@ components:
         dose_mg:        { type: number }
         units_u100:     { type: integer }
         volume_ml:      { type: number }
+        vial_size_mg:   { type: number, nullable: true, description: "Research/compounded vial size this conversion table applies to. Null for non-vial label references." }
+        concentration_mg_per_ml: { type: number, nullable: true, description: "Resulting concentration used for U-100 unit conversion." }
+        source_id:      { type: string, format: uuid, nullable: true }
         ordinal:        { type: integer }
 
     TrackerHints:

@@ -93,7 +93,9 @@ export async function GET(
       .order('ordinal', { ascending: true }),
     admin
       .from('drug_dose_reference')
-      .select('id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, ordinal')
+      .select(
+        'id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, vial_size_mg, concentration_mg_per_ml, source_id, ordinal',
+      )
       .eq('drug_id', drug.id)
       .order('protocol_label', { ascending: true })
       .order('ordinal', { ascending: true }),
