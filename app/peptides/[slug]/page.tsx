@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getRegionNotice } from '@/lib/compliance/region-copy';
 import { QuickFactsPanel, ProtocolBlock } from '@/components/ui/content-blocks';
+import { VialDosageChartPanel } from '@/components/drugs/vial-dosage-chart-panel';
 import { TocScrollSpy } from '@/components/ui/toc-scrollspy';
 import { MobileSectionRail } from '@/components/ui/mobile-section-rail';
 import {
@@ -43,6 +44,38 @@ const PROTOCOL_SECTION: Record<string, { heading: string; intro: string }> = {
     intro:
       'Quick reference for converting your prescribed dose to syringe units and injection volume at 10 mg/mL concentration.',
   },
+  'Standard / Gradual Approach (5 mg vial, 5 mg/mL)': {
+    heading: 'Standard / Gradual Approach',
+    intro: 'Conservative titration for the 5 mg vial reconstituted with 1.0 mL bacteriostatic water (~5.0 mg/mL).',
+  },
+  'Advanced / Aggressive Protocol (5 mg vial, 5 mg/mL)': {
+    heading: 'Advanced / Aggressive Protocol',
+    intro: 'Higher-dose escalation for the 5 mg vial at ~5.0 mg/mL. Doses above 5 mg require multiple vials.',
+  },
+  'Standard / Gradual Approach (10 mg vial, 10 mg/mL)': {
+    heading: 'Standard / Gradual Approach',
+    intro: 'Conservative titration for the 10 mg vial reconstituted with 1.0 mL bacteriostatic water (~10.0 mg/mL).',
+  },
+  'Advanced / Aggressive Protocol (10 mg vial, 10 mg/mL)': {
+    heading: 'Advanced / Aggressive Protocol',
+    intro: 'Higher-dose escalation for the 10 mg vial at ~10.0 mg/mL. The 12 mg dose requires two vials.',
+  },
+  'Standard / Gradual Approach (20 mg vial, 10 mg/mL)': {
+    heading: 'Standard / Gradual Approach',
+    intro: 'Conservative titration for the 20 mg vial reconstituted with 2.0 mL bacteriostatic water (~10.0 mg/mL).',
+  },
+  'Advanced / Aggressive Protocol (20 mg vial, 10 mg/mL)': {
+    heading: 'Advanced / Aggressive Protocol',
+    intro: 'Higher-dose escalation for the 20 mg vial at ~10.0 mg/mL. All doses up to 12 mg fit in one reconstituted vial.',
+  },
+  'Standard / Gradual Approach (30 mg vial, 10 mg/mL)': {
+    heading: 'Standard / Gradual Approach',
+    intro: 'Conservative titration for the 30 mg vial reconstituted with 3.0 mL bacteriostatic water (~10.0 mg/mL).',
+  },
+  'Advanced / Aggressive Protocol (30 mg vial, 10 mg/mL)': {
+    heading: 'Advanced / Aggressive Protocol',
+    intro: 'Higher-dose escalation for the 30 mg vial at ~10.0 mg/mL. Efficient for complete protocols from a single vial.',
+  },
 };
 
 export default async function DrugDetailPage({ params }: Props) {
@@ -75,6 +108,7 @@ export default async function DrugDetailPage({ params }: Props) {
     injectionGuideRes,
     reconstitutionGuideRes,
     doseReferenceRes,
+    dosageChartSummariesRes,
     sourcesRes,
     warningsRes,
     missedDoseRulesRes,
@@ -141,6 +175,13 @@ export default async function DrugDetailPage({ params }: Props) {
       .from('drug_dose_reference')
       .select(
         'id, protocol_label, phase_label, dose_mg, units_u100, volume_ml, vial_size_mg, concentration_mg_per_ml, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
+      .order('ordinal'),
+    supabase
+      .from('drug_dosage_chart_summary')
+      .select(
+        'id, vial_size_mg, intro_text, highlight_reconstitute, highlight_weekly_range, highlight_measuring, highlight_storage, bac_water_ml, concentration_mg_per_ml, source_id, ordinal',
       )
       .eq('drug_id', drug.id)
       .order('ordinal'),
@@ -394,12 +435,33 @@ export default async function DrugDetailPage({ params }: Props) {
   );
 
   const reconstitutionGuide = reconstitutionGuideRes.data ?? [];
+  const dosageChartSummaries = dosageChartSummariesRes.data ?? [];
   const doseReference = doseReferenceRes.data ?? [];
   const doseByProtocol = doseReference.reduce<Record<string, typeof doseReference>>((acc, r) => {
     (acc[r.protocol_label] ||= []).push(r);
     return acc;
   }, {});
   const doseProtocolLabels = [...new Set(doseReference.map((r) => r.protocol_label))];
+  const vialDoseProtocolLabels = doseProtocolLabels.filter((label) => /mg vial/.test(label));
+  const activeDoseProtocolLabels =
+    dosageChartSummaries.length > 0 && vialDoseProtocolLabels.length > 0
+      ? vialDoseProtocolLabels
+      : doseProtocolLabels;
+  const doseProtocolsByVial = activeDoseProtocolLabels.reduce<Record<number, string[]>>((acc, label) => {
+    const vial = doseByProtocol[label]?.[0]?.vial_size_mg;
+    const key = vial ?? 0;
+    (acc[key] ||= []).push(label);
+    return acc;
+  }, {});
+  const doseVialOrder =
+    dosageChartSummaries.length > 0
+      ? [...dosageChartSummaries]
+          .sort((a, b) => a.ordinal - b.ordinal || a.vial_size_mg - b.vial_size_mg)
+          .map((c) => c.vial_size_mg)
+      : Object.keys(doseProtocolsByVial)
+          .map(Number)
+          .filter((v) => v > 0)
+          .sort((a, b) => a - b);
   const dosePhasesByProtocol = doseEscalationPhases.reduce<Record<string, typeof doseEscalationPhases>>(
     (acc, phase) => {
       (acc[phase.protocol_label] ||= []).push(phase);
@@ -410,7 +472,8 @@ export default async function DrugDetailPage({ params }: Props) {
   const dosePhaseLabels = [...new Set(doseEscalationPhases.map((phase) => phase.protocol_label))];
 
   // True when the drug is a compounded/lyophilized formulation
-  const hasReconstitution = reconstitutionGuide.length > 0 || doseReference.length > 0;
+  const hasReconstitution =
+    reconstitutionGuide.length > 0 || doseReference.length > 0 || dosageChartSummaries.length > 0;
   // True when the drug uses a pen device and has no reconstitution content
   const hasPenGuide = injectionGuide.length > 0 && !hasReconstitution;
 
@@ -758,6 +821,14 @@ export default async function DrugDetailPage({ params }: Props) {
                 subtitle="Full preparation, protocol, and administration reference for compounded lyophilised formulations."
               >
                 <div className="space-y-8">
+                  {dosageChartSummaries.length > 0 && (
+                    <VialDosageChartPanel
+                      charts={dosageChartSummaries}
+                      drugName={displayName}
+                      imageUrl={drug.image_url}
+                    />
+                  )}
+
                   {/* Protocol Overview */}
                   {drug.typical_dosing_schedule && (
                     <div>
@@ -797,59 +868,70 @@ export default async function DrugDetailPage({ params }: Props) {
                     </div>
                   )}
 
-                  {/* Dose protocol tables — Standard, Advanced, Concentration reference */}
-                  {doseProtocolLabels.map((label) => {
-                    const config = PROTOCOL_SECTION[label];
-                    const protocolRows = doseByProtocol[label];
-                    const firstRow = protocolRows[0];
+                  {/* Dose protocol tables — grouped by vial when editorial charts exist */}
+                  {(doseVialOrder.length > 0 ? doseVialOrder : [0]).map((vialKey) => {
+                    const labels = doseProtocolsByVial[vialKey] ?? [];
+                    if (labels.length === 0) return null;
                     return (
-                      <div key={label} className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {config?.heading ?? label}
-                        </p>
-                        {config?.intro && (
-                          <p className="text-sm text-muted-foreground">{config.intro}</p>
+                      <div key={vialKey} className="space-y-6">
+                        {vialKey > 0 && doseVialOrder.length > 1 && (
+                          <p className="text-sm font-semibold tracking-tight">{vialKey} mg vial — dosing tables</p>
                         )}
-                        {(firstRow?.vial_size_mg != null || firstRow?.concentration_mg_per_ml != null) && (
-                          <div className="flex flex-wrap gap-2">
-                            {firstRow.vial_size_mg != null && (
-                              <Badge variant="outline">{firstRow.vial_size_mg} mg vial</Badge>
-                            )}
-                            {firstRow.concentration_mg_per_ml != null && (
-                              <Badge variant="outline">
-                                {firstRow.concentration_mg_per_ml} mg/mL
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-border">
-                                <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                  Phase / Dose
-                                </th>
-                                <th className="pb-1.5 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                  U-100 Units
-                                </th>
-                                <th className="pb-1.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                  Volume (mL)
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {protocolRows.map((row) => (
-                                <tr key={row.id} className="border-b border-border/50">
-                                  <td className="py-1.5 pr-4">{row.phase_label ?? `${row.dose_mg} mg`}</td>
-                                  <td className="py-1.5 pr-4 text-right tabular-nums">{row.units_u100}</td>
-                                  <td className="py-1.5 text-right tabular-nums">
-                                    {Number(row.volume_ml).toFixed(2)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        {labels.map((label) => {
+                          const config = PROTOCOL_SECTION[label];
+                          const protocolRows = doseByProtocol[label];
+                          const firstRow = protocolRows[0];
+                          return (
+                            <div key={label} className="space-y-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {config?.heading ?? label}
+                              </p>
+                              {config?.intro && (
+                                <p className="text-sm text-muted-foreground">{config.intro}</p>
+                              )}
+                              {(firstRow?.vial_size_mg != null || firstRow?.concentration_mg_per_ml != null) && (
+                                <div className="flex flex-wrap gap-2">
+                                  {firstRow.vial_size_mg != null && (
+                                    <Badge variant="outline">{firstRow.vial_size_mg} mg vial</Badge>
+                                  )}
+                                  {firstRow.concentration_mg_per_ml != null && (
+                                    <Badge variant="outline">
+                                      {firstRow.concentration_mg_per_ml} mg/mL
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b border-border">
+                                      <th className="pb-1.5 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                        Phase / Dose
+                                      </th>
+                                      <th className="pb-1.5 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                        U-100 Units
+                                      </th>
+                                      <th className="pb-1.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                        Volume (mL)
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {protocolRows.map((row) => (
+                                      <tr key={row.id} className="border-b border-border/50">
+                                        <td className="py-1.5 pr-4">{row.phase_label ?? `${row.dose_mg} mg`}</td>
+                                        <td className="py-1.5 pr-4 text-right tabular-nums">{row.units_u100}</td>
+                                        <td className="py-1.5 text-right tabular-nums">
+                                          {Number(row.volume_ml).toFixed(2)}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}

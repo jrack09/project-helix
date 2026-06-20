@@ -212,6 +212,42 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['drug_dose_reference']['Insert']>;
         Relationships: EmptyRel;
       };
+      drug_dosage_chart_summary: {
+        Row: {
+          id: string;
+          drug_id: string;
+          vial_size_mg: number;
+          intro_text: string;
+          highlight_reconstitute: string;
+          highlight_weekly_range: string;
+          highlight_measuring: string;
+          highlight_storage: string;
+          bac_water_ml: number;
+          concentration_mg_per_ml: number;
+          source_id: string | null;
+          ordinal: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          drug_id: string;
+          vial_size_mg: number;
+          intro_text: string;
+          highlight_reconstitute: string;
+          highlight_weekly_range: string;
+          highlight_measuring: string;
+          highlight_storage: string;
+          bac_water_ml: number;
+          concentration_mg_per_ml: number;
+          source_id?: string | null;
+          ordinal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drug_dosage_chart_summary']['Insert']>;
+        Relationships: EmptyRel;
+      };
       drug_sources: {
         Row: {
           id: string;

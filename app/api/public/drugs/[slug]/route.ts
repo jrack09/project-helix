@@ -41,6 +41,7 @@ export async function GET(
     injectionGuide,
     reconstitutionGuide,
     doseReference,
+    dosageChartSummaries,
     sources,
     warnings,
     missedDoseRules,
@@ -98,6 +99,13 @@ export async function GET(
       )
       .eq('drug_id', drug.id)
       .order('protocol_label', { ascending: true })
+      .order('ordinal', { ascending: true }),
+    admin
+      .from('drug_dosage_chart_summary')
+      .select(
+        'id, vial_size_mg, intro_text, highlight_reconstitute, highlight_weekly_range, highlight_measuring, highlight_storage, bac_water_ml, concentration_mg_per_ml, source_id, ordinal',
+      )
+      .eq('drug_id', drug.id)
       .order('ordinal', { ascending: true }),
     admin
       .from('drug_sources')
@@ -303,6 +311,7 @@ export async function GET(
         injection_guide: injectionGuide.data ?? [],
         reconstitution_guide: reconstitutionGuide.data ?? [],
         dose_reference: doseReference.data ?? [],
+        dosage_chart_summaries: dosageChartSummaries.data ?? [],
         protocol_timeline: protocolTimeline.data ?? [],
         checkin_protocol: checkinProtocolData,
       },
